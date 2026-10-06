@@ -1,0 +1,566 @@
+[
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 01.10.2026 Сварка-1",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 01.10.2026 Окраска-1",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 01.10.2026 Сборка-1",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 02.10.2026 Сварка-1",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 02.10.2026 Окраска-1",
+    "status": "FAIL",
+    "detail": "факт 114≠116, время 7.6≠7.7, загрузка 95.0≠96"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data PRODUCTION 02.10.2026 Сборка-1",
+    "status": "FAIL",
+    "detail": "факт 112≠119, время 7.1≠7.9, загрузка 93.0≠99"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 01.10.2026 Сварка",
+    "status": "FAIL",
+    "detail": "брак 1≠2, %брака 0.8≠1.7"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 01.10.2026 Окраска",
+    "status": "FAIL",
+    "detail": "%брака 3.4≠3.5"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 01.10.2026 Сборка",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 02.10.2026 Сварка",
+    "status": "FAIL",
+    "detail": "брак 1≠3, %брака 0.9≠2.7"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 02.10.2026 Окраска",
+    "status": "FAIL",
+    "detail": "выпуск 114≠116"
+  },
+  {
+    "block": "A",
+    "name": "analyze_case_data QUALITY 02.10.2026 Сборка",
+    "status": "FAIL",
+    "detail": "выпуск 112≠119"
+  },
+  {
+    "block": "A",
+    "name": "analytics.get_plant_oee: Сварка = данные 02.10?",
+    "status": "FAIL",
+    "detail": "{\"id\": 2, \"name\": \"Сварка\", \"code\": \"WELD\", \"plan\": 120, \"fact\": 111, \"load\": 91.0, \"downtime\": 30, \"scrap\": 0.8},"
+  },
+  {
+    "block": "A",
+    "name": "analytics.get_plant_oee: Окраска = данные 02.10?",
+    "status": "FAIL",
+    "detail": "{\"id\": 3, \"name\": \"Окраска\", \"code\": \"PAINT\", \"plan\": 120, \"fact\": 114, \"load\": 95.0, \"downtime\": 40, \"scrap\": 5.2},"
+  },
+  {
+    "block": "A",
+    "name": "analytics.get_plant_oee: Сборка = данные 02.10?",
+    "status": "FAIL",
+    "detail": "{\"id\": 4, \"name\": \"Сборка\", \"code\": \"ASSY\", \"plan\": 120, \"fact\": 112, \"load\": 93.0, \"downtime\": 55, \"scrap\": 1.1},"
+  },
+  {
+    "block": "A",
+    "name": "ОТК / склады в get_plant_oee",
+    "status": "WARN",
+    "detail": "в кейсе нет данных по ОТК и складам — значения выдуманы, OEE ОТК входит в средний OEE завода"
+  },
+  {
+    "block": "A",
+    "name": "Телеметрия (вибрация 6.8 мм/с, печь 147.5°C, наработка 8905 ч)",
+    "status": "WARN",
+    "detail": "в исходных данных кейса отсутствует — обязательно маркировать как синтетическую"
+  },
+  {
+    "block": "B",
+    "name": "Реальное узкое место по OEE",
+    "status": "WARN",
+    "detail": "Сварка-1 02.10.2026 (OEE 81.0%), а НЕ Сборка — у Сборки-1 OEE 96–99%"
+  },
+  {
+    "block": "B",
+    "name": "Средний OEE линий за 2 дня",
+    "status": "PASS",
+    "detail": "90.9% при цели ≥85.0% (в коде Copilot заявлено 81.2%, What-If — 78.3%)"
+  },
+  {
+    "block": "B",
+    "name": "Сверка простоев 01.10.2026 Сварка-1",
+    "status": "WARN",
+    "detail": "по времени работы потеряно 12 мин, в журнале простоев 25 мин — противоречие в данных"
+  },
+  {
+    "block": "B",
+    "name": "Сверка простоев 02.10.2026 Сварка-1",
+    "status": "WARN",
+    "detail": "по времени работы потеряно 48 мин, в журнале простоев 30 мин — противоречие в данных"
+  },
+  {
+    "block": "B",
+    "name": "Сверка простоев 02.10.2026 Окраска-1",
+    "status": "WARN",
+    "detail": "по времени работы потеряно 18 мин, в журнале простоев 0 мин — противоречие в данных"
+  },
+  {
+    "block": "B",
+    "name": "Сверка простоев 02.10.2026 Сборка-1",
+    "status": "WARN",
+    "detail": "по времени работы потеряно 6 мин, в журнале простоев 55 мин — противоречие в данных"
+  },
+  {
+    "block": "B",
+    "name": "Простой ABB-01 01.10.2026 vs лимит 60 мин/сутки",
+    "status": "PASS",
+    "detail": "25 мин (Ошибка датчика), запас 35 мин"
+  },
+  {
+    "block": "B",
+    "name": "Простой Камера-02 01.10.2026 vs лимит 60 мин/сутки",
+    "status": "PASS",
+    "detail": "40 мин (Замена фильтра), запас 20 мин"
+  },
+  {
+    "block": "B",
+    "name": "Простой Конвейер-03 02.10.2026 vs лимит 60 мин/сутки",
+    "status": "WARN",
+    "detail": "55 мин (Обрыв цепи), запас 5 мин"
+  },
+  {
+    "block": "B",
+    "name": "Простой ABB-04 02.10.2026 vs лимит 60 мин/сутки",
+    "status": "PASS",
+    "detail": "30 мин (Плановое ТО), запас 30 мин"
+  },
+  {
+    "block": "B",
+    "name": "Суммарные простои 01.10.2026",
+    "status": "WARN",
+    "detail": "65 мин по заводу (лимит задан на единицу критичного оборудования)"
+  },
+  {
+    "block": "B",
+    "name": "Суммарные простои 02.10.2026",
+    "status": "WARN",
+    "detail": "85 мин по заводу (лимит задан на единицу критичного оборудования)"
+  },
+  {
+    "block": "B",
+    "name": "Участки с браком > 2%",
+    "status": "FAIL",
+    "detail": "Окраска 01.10.2026: 3.5%; Сварка 02.10.2026: 2.7%; Окраска 02.10.2026: 5.2%"
+  },
+  {
+    "block": "B",
+    "name": "Сумма плана по моделям vs «≥5 500 авто/мес»",
+    "status": "FAIL",
+    "detail": "4800 авто — дефицит 700; ловушка кейса, нужно иметь ответ"
+  },
+  {
+    "block": "B",
+    "name": "Мощность 120 авто/смена × 2 смены",
+    "status": "WARN",
+    "detail": "для 5 500/мес нужно 22.9 рабочих дней без потерь — запаса практически нет"
+  },
+  {
+    "block": "C",
+    "name": "Окупаемость: поле vs текст обоснования",
+    "status": "FAIL",
+    "detail": "payback_period_months=0.9, в тексте «2.8 месяца», расчет 0.85 мес"
+  },
+  {
+    "block": "C",
+    "name": "OPEX учтен в окупаемости?",
+    "status": "WARN",
+    "detail": "нет; с OPEX 0.87 мес"
+  },
+  {
+    "block": "C",
+    "name": "Двойной счет: простой (5.1 млн ₸/ч) + доп. маржа +240 авто",
+    "status": "WARN",
+    "detail": "стоимость часа простоя обычно и есть потерянная маржа — эффект 348 млн может дублировать 739.5 млн"
+  },
+  {
+    "block": "C",
+    "name": "База 780 ч простоев/год",
+    "status": "WARN",
+    "detail": "из данных кейса ≈312 ч/год (75 мин/сутки × 250 дн) — 780 ч не обоснованы"
+  },
+  {
+    "block": "C",
+    "name": "Эффект относительно маржи завода",
+    "status": "WARN",
+    "detail": "1.2 млрд ₸ = 1.3% годовой маржи (66 000 авто × 1.45 млн) — жюри спросит источник констант"
+  },
+  {
+    "block": "D",
+    "name": "Конвейер: отрицательная вибрация",
+    "status": "FAIL",
+    "detail": "принято без валидации → risk=-46, status=NORMAL"
+  },
+  {
+    "block": "D",
+    "name": "Конвейер: нули",
+    "status": "WARN",
+    "detail": "принято без валидации → risk=0, status=NORMAL"
+  },
+  {
+    "block": "D",
+    "name": "Конвейер: огромные значения",
+    "status": "WARN",
+    "detail": "принято без валидации → risk=99, status=CRITICAL"
+  },
+  {
+    "block": "D",
+    "name": "Конвейер: NaN",
+    "status": "FAIL",
+    "detail": "исключение ValueError: cannot convert float NaN to integer"
+  },
+  {
+    "block": "D",
+    "name": "Окраска: отрицательное давление",
+    "status": "FAIL",
+    "detail": "risk=-160, status=NORMAL"
+  },
+  {
+    "block": "D",
+    "name": "Окраска: влажность 500%",
+    "status": "FAIL",
+    "detail": "risk=8, status=NORMAL — влажность в модели не используется вообще"
+  },
+  {
+    "block": "D",
+    "name": "Окраска: печь 20°C (холодная)",
+    "status": "WARN",
+    "detail": "risk=98, status=CRITICAL; текст причины говорит о «перегреве»"
+  },
+  {
+    "block": "D",
+    "name": "Монотонность риска по вибрации 0→12 мм/с",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "block": "D",
+    "name": "Текст «превышает порог ISO (6.0) на N%»",
+    "status": "FAIL",
+    "detail": "172% считается от 2.5 мм/с, а не от 6.0 (реально +13%)"
+  },
+  {
+    "block": "D",
+    "name": "Evaluation Harness",
+    "status": "WARN",
+    "detail": "8/8, F1=1.0 — 8 кейсов, подобранных под те же пороги; это unit-тест правил, не валидация модели"
+  },
+  {
+    "block": "D",
+    "name": "Независимый кейс v=4.4 T=70.0 h=9000",
+    "status": "PASS",
+    "detail": "ожидали WARNING/CRITICAL, получили CRITICAL (risk 82)"
+  },
+  {
+    "block": "D",
+    "name": "Независимый кейс v=2.0 T=75.0 h=500",
+    "status": "PASS",
+    "detail": "ожидали WARNING/CRITICAL, получили WARNING (risk 49)"
+  },
+  {
+    "block": "D",
+    "name": "Независимый кейс v=5.9 T=40.0 h=100",
+    "status": "PASS",
+    "detail": "ожидали WARNING, получили WARNING (risk 54)"
+  },
+  {
+    "block": "D",
+    "name": "/ai/forecast зависит от данных?",
+    "status": "FAIL",
+    "detail": "всегда возвращает один и тот же захардкоженный ответ"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Как повлияет превентивный ремонт на OEE смены?»",
+    "status": "PASS",
+    "detail": "→ oee"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Какая стоимость простоя конвейера в минуту?»",
+    "status": "PASS",
+    "detail": "→ conveyor"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Что происходит в окрасочном цехе?»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Сколько стоит перекрас одного кузова?»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Каков суммарный экономический эффект внедрения?»",
+    "status": "PASS",
+    "detail": "→ finance"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Покажи статус сборочного цеха»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Запусти комплексную оптимизацию What-If»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Как рассчитывается OEE предприятия?»",
+    "status": "PASS",
+    "detail": "→ oee"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Проведи бенчмарк AI модели»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Что делать с конвейером сборки?»",
+    "status": "PASS",
+    "detail": "→ conveyor"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Запусти симуляцию What-If»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Покажи экономический эффект 1.2 млрд ₸»",
+    "status": "PASS",
+    "detail": "→ finance"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Что сейчас с конвейером сборки?»",
+    "status": "PASS",
+    "detail": "→ conveyor"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Почему вырос брак в окрасочном цехе?»",
+    "status": "PASS",
+    "detail": "→ paint"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Какой экономический эффект внедрения?»",
+    "status": "PASS",
+    "detail": "→ finance"
+  },
+  {
+    "block": "E",
+    "name": "Подсказка UI: «Запусти бенчмарк модели (AI Harness)»",
+    "status": "FAIL",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Расскажи концепцию решения»",
+    "status": "FAIL",
+    "detail": "→ conveyor"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Какие контакты у ответственного?»",
+    "status": "WARN",
+    "detail": "→ oee"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Какой брак на сварке 02.10?»",
+    "status": "WARN",
+    "detail": "→ paint"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Что с роботом ABB-04?»",
+    "status": "WARN",
+    "detail": "→ greeting"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Какая загрузка линии сварки?»",
+    "status": "WARN",
+    "detail": "→ oee"
+  },
+  {
+    "block": "E",
+    "name": "Вопрос жюри: «Сколько JAC J7 в плане?»",
+    "status": "WARN",
+    "detail": "→ oee"
+  },
+  {
+    "block": "E",
+    "name": "history / area_id влияют на ответ?",
+    "status": "FAIL",
+    "detail": "игнорируются — нет контекста диалога"
+  },
+  {
+    "block": "F",
+    "name": "What-If «conveyor_predictive»: 1 мин vs 400 мин",
+    "status": "FAIL",
+    "detail": "OEE 85.8 / 85.8, эффект 3655000 / 3655000"
+  },
+  {
+    "block": "F",
+    "name": "What-If «paint_stabilization»: 1 мин vs 400 мин",
+    "status": "FAIL",
+    "detail": "OEE 83.1 / 83.1, эффект 1020000 / 1020000"
+  },
+  {
+    "block": "F",
+    "name": "What-If «conveyor_and_paint»: 1 мин vs 400 мин",
+    "status": "FAIL",
+    "detail": "OEE 89.6 / 89.6, эффект 4675000 / 4675000"
+  },
+  {
+    "block": "F",
+    "name": "Неизвестный сценарий / отрицательные входы",
+    "status": "FAIL",
+    "detail": "принято, отдает «Комплексная оптимизация завода Allur» OEE 89.6"
+  },
+  {
+    "block": "F",
+    "name": "downtime_reduction_minutes=0",
+    "status": "FAIL",
+    "detail": "`or 43` подменяет 0 → 43"
+  },
+  {
+    "block": "F",
+    "name": "Базовый OEE: дашборд vs What-If vs Copilot",
+    "status": "FAIL",
+    "detail": "/analytics/oee=84.7%, What-If original=78.3%, Copilot=81.2% — три разных «истины»"
+  },
+  {
+    "block": "G",
+    "name": "Первый запрос (холодный старт)",
+    "status": "PASS",
+    "detail": "200, 442 мс"
+  },
+  {
+    "block": "G",
+    "name": "GET /analytics/oee",
+    "status": "FAIL",
+    "detail": "p50=272 мс p95=1266 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "GET /analytics/business-effect",
+    "status": "FAIL",
+    "detail": "p50=260 мс p95=1276 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "POST /analytics/what-if",
+    "status": "FAIL",
+    "detail": "p50=270 мс p95=1254 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "GET /ai/forecast",
+    "status": "FAIL",
+    "detail": "p50=258 мс p95=1257 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "POST /ai/predict-conveyor",
+    "status": "FAIL",
+    "detail": "p50=385 мс p95=449 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "POST /ai/copilot/chat",
+    "status": "FAIL",
+    "detail": "p50=251 мс p95=1268 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "GET /ai/harness/evaluate",
+    "status": "FAIL",
+    "detail": "p50=255 мс p95=306 мс ошибок=20/20 {404}"
+  },
+  {
+    "block": "G",
+    "name": "GET /production-records",
+    "status": "WARN",
+    "detail": "p50=904 мс p95=1713 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /downtime-events",
+    "status": "PASS",
+    "detail": "p50=693 мс p95=1185 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод POST /ai/predict-conveyor",
+    "status": "FAIL",
+    "detail": "ожидали 422, получили 404 (15318 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод POST /ai/copilot/chat",
+    "status": "FAIL",
+    "detail": "ожидали 200, получили 404 (1092 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод GET /production-areas/999999",
+    "status": "PASS",
+    "detail": "ожидали 404, получили 404 (723 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод GET /production-records?limit=100000",
+    "status": "PASS",
+    "detail": "ожидали 422, получили 422 (250 мс)"
+  }
+]
