@@ -8,4 +8,4 @@ from app.core.config import get_settings
 @lru_cache
 def get_supabase() -> Client:
     settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_key)
+    return create_client(settings.supabase_url, settings.supabase_secret_key)

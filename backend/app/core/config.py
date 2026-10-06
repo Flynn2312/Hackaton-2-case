@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
 
     supabase_url: str
-    supabase_key: str
+    supabase_secret_key: str
 
     cors_origins: str = ""
 
