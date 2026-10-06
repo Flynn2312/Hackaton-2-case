@@ -93,4 +93,26 @@ export const api = {
 
     return { zones, incidents: incidentsUi, history };
   },
+
+  async getAiForecast() {
+    try {
+      return await get("/ai/forecast");
+    } catch {
+      return null;
+    }
+  },
+
+  async askCopilot(question, areaId = null) {
+    try {
+      const res = await fetch(`${BASE}/api/ai/copilot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, area_id: areaId }),
+      });
+      if (!res.ok) throw new Error("Copilot error");
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
 };
