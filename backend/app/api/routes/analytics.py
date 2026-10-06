@@ -1,0 +1,39 @@
+from typing import Optional
+from fastapi import APIRouter, Depends
+from supabase import Client
+
+from app.api.deps import DB
+from app.services.analytics import AnalyticsService
+from app.schemas.analytics import (
+    PlantOeeResponse, BusinessEffectResponse,
+    WhatIfSimulationRequest, WhatIfSimulationResponse
+)
+
+router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+@router.get("/oee", response_model=PlantOeeResponse, summary="Расчет OEE завода и технологических участков")
+def get_plant_oee(shift_id: Optional[int] = None, db: DB = None):
+    """
+    Возвращает сквозной расчет OEE (Availability * Performance * Quality)
+    по технологической цепочке: Склад -> Сварка -> Окраска -> Сборка -> ОТК -> Склад ГП.
+    """
+    return AnalyticsService.get_plant_oee(db=db, shift_id=shift_id)
+
+
+@router.get("/business-effect", response_model=BusinessEffectResponse, summary="Экономический эффект внедрения для Allur (1.2 млрд ₸)")
+def get_business_effect():
+    """
+    Возвращает экономическое обоснование для АО «Allur»:
+    годовой эффект 1.2 млрд ₸, срок окупаемости 2.8 мес, структура экономии.
+    """
+    return AnalyticsService.get_business_effect()
+
+
+@router.post("/what-if", response_model=WhatIfSimulationResponse, summary="Сценарный тренажер What-If для моделирования решений")
+def run_what_if_simulation(request: WhatIfSimulationRequest):
+    """
+    Моделирует управленческие сценарии: превентивная замена цепи Конвейера-03,
+    стабилизация температуры окраски, комплексная оптимизация смены.
+    """
+    return AnalyticsService.simulate_what_if(request)
