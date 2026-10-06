@@ -168,15 +168,34 @@ export default function PlantTwin() {
               {sel ? "Показать весь завод" : "Выберите участок"}
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-stretch">
-            {zones.map((z, i) => (
-              <div key={z.id} className="relative flex">
-                <ZoneNode z={z} selected={z.id === selId} onClick={() => setSelId(z.id === selId ? null : z.id)} />
-                {i < zones.length - 1 && (
-                  <span className="hidden md:block absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 text-lg" style={{ color: "#5B6B79" }}>›</span>
-                )}
-              </div>
-            ))}
+          <div className="flex flex-wrap justify-center gap-x-12 gap-y-10">
+            {zones.map((z, i) => {
+              const isLast = i === zones.length - 1;
+              const endOfRow = (i + 1) % 3 === 0;
+              return (
+                <div key={z.id} className="relative w-full md:w-[calc((100%-6rem)/3)] flex">
+                  <ZoneNode z={z} selected={z.id === selId} onClick={() => setSelId(z.id === selId ? null : z.id)} />
+                  {!isLast && (
+                    <>
+                      {/* стрелка вправо между карточками в ряду */}
+                      {!endOfRow && (
+                        <span className="hidden md:flex absolute -right-12 top-1/2 -translate-y-1/2 w-12 justify-center" style={{ color: "#17232F" }}>
+                          <svg width="40" height="24" viewBox="0 0 40 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 12h32M26 3l10 9-10 9" />
+                          </svg>
+                        </span>
+                      )}
+                      {/* стрелка вниз на телефоне */}
+                      <span className="md:hidden absolute -bottom-10 left-0 right-0 h-10 flex justify-center items-center" style={{ color: "#17232F" }}>
+                        <svg width="24" height="32" viewBox="0 0 24 32" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3v24M3 19l9 10 9-10" />
+                        </svg>
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="flex gap-4 mt-3 text-xs" style={{ color: "#5B6B79" }}>
             {Object.entries(STATUS).map(([k, v]) => (<span key={k} className="flex items-center gap-1.5"><Dot s={k} size={8} />{v.label}</span>))}
