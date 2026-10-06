@@ -1,0 +1,2 @@
+# STUshniki
+Hackaton Qostanai
