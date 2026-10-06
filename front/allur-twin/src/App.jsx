@@ -7,6 +7,7 @@ import { api } from "./api";
 import BusinessRoiModal from "./components/BusinessRoiModal";
 import WhatIfSimulatorModal from "./components/WhatIfSimulatorModal";
 import AiForecastPanel from "./components/AiForecastPanel";
+import AiCopilotChatModal from "./components/AiCopilotChatModal";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -104,6 +105,7 @@ export default function PlantTwin() {
   // Модальные окна для защитной презентации (Задачи 4 и 5)
   const [isRoiOpen, setIsRoiOpen] = useState(false);
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [appliedScenario, setAppliedScenario] = useState(null);
 
   // Загрузка данных с бэкенда, опрос каждые 10 секунд
@@ -230,6 +232,14 @@ export default function PlantTwin() {
           >
             <span>📊</span>
             <span>Эффект 1.2 млрд ₸</span>
+          </button>
+
+          <button
+            onClick={() => setIsCopilotOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+          >
+            <span>🤖</span>
+            <span>AI Copilot & Харнесс</span>
           </button>
 
           <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-700 text-xs tabular-nums text-slate-300">
@@ -430,12 +440,27 @@ export default function PlantTwin() {
         </section>
       </main>
 
+      {/* Плавающая кнопка для быстрого вызова ИИ */}
+      <button
+        onClick={() => setIsCopilotOpen(true)}
+        className="fixed bottom-6 right-6 z-40 bg-[#17232F] text-white p-3.5 rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2.5 border-2 border-emerald-400 cursor-pointer hover:bg-slate-800"
+      >
+        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+        <span className="text-xl">🤖</span>
+        <span className="text-xs font-bold pr-1">Спросить ИИ</span>
+      </button>
+
       {/* Модальные окна */}
       <BusinessRoiModal isOpen={isRoiOpen} onClose={() => setIsRoiOpen(false)} />
       <WhatIfSimulatorModal
         isOpen={isWhatIfOpen}
         onClose={() => setIsWhatIfOpen(false)}
         activeScenario={appliedScenario}
+        onApplyScenario={(sc) => setAppliedScenario(sc)}
+      />
+      <AiCopilotChatModal
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
         onApplyScenario={(sc) => setAppliedScenario(sc)}
       />
     </div>

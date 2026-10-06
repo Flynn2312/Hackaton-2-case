@@ -48,13 +48,51 @@ class AiForecastSummaryResponse(BaseModel):
     model_info: str
 
 
-class CopilotRequest(BaseModel):
-    question: str
+class CopilotMessage(BaseModel):
+    role: str  # "user" | "assistant" | "system"
+    content: str
+    timestamp: Optional[str] = None
+
+
+class CopilotChatRequest(BaseModel):
+    message: str
+    history: Optional[List[CopilotMessage]] = []
     area_id: Optional[int] = None
 
 
-class CopilotResponse(BaseModel):
+class CopilotChatResponse(BaseModel):
     answer: str
-    root_cause: str
-    action_items: List[str]
-    estimated_effect_kzt: int
+    root_cause: Optional[str] = None
+    action_items: List[str] = []
+    estimated_effect_kzt: int = 0
+    recommended_scenario_id: Optional[str] = None
+    quick_suggestions: List[str] = []
+
+
+class HarnessCaseResult(BaseModel):
+    case_id: str
+    name: str
+    domain: str  # "conveyor_vibration" | "paint_quality" | "bottleneck_throughput"
+    input_features: Dict[str, Any]
+    expected_status: str
+    predicted_status: str
+    is_passed: bool
+    latency_ms: float
+    confidence_score: float
+    diagnostic_message: str
+
+
+class HarnessEvaluationReport(BaseModel):
+    test_suite_name: str
+    timestamp: str
+    total_cases: int
+    passed_cases: int
+    failed_cases: int
+    accuracy_percent: float
+    precision_score: float
+    recall_score: float
+    f1_score: float
+    mean_latency_ms: float
+    benchmark_status: str  # "EXCELLENT" | "PASSED" | "FAILED"
+    cases: List[HarnessCaseResult]
+    summary_verdict: str

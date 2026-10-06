@@ -3,7 +3,8 @@ from app.services.ai_engine import ai_engine
 from app.schemas.ai import (
     EquipmentPredictionResponse, AiForecastSummaryResponse,
     ConveyorTelemetryRequest, PaintTelemetryRequest,
-    CopilotRequest, CopilotResponse
+    CopilotChatRequest, CopilotChatResponse,
+    HarnessEvaluationReport
 )
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -36,10 +37,22 @@ def predict_paint(telemetry: PaintTelemetryRequest):
     return ai_engine.predict_paint_quality_scrap(telemetry)
 
 
-@router.post("/copilot", response_model=CopilotResponse, summary="AI Copilot / ИИ-советчик главного инженера Allur")
-def ask_copilot(query: CopilotRequest):
+@router.post("/copilot/chat", response_model=CopilotChatResponse, summary="Интерактивный диалог с AI Copilot завода Allur")
+def chat_with_copilot(req: CopilotChatRequest):
     """
-    Интеллектуальный советчик: объясняет корневую причину аномалии
-    и формирует пошаговый план действий диспетчера с расчетом эффекта в тенге.
+    Полноценная коммуникация с ИИ:
+    - Контекстные ответы по цехам завода, инцидентам и метрикам OEE
+    - Выявление корневых причин (Explainable AI)
+    - Пошаговые предписания для ремонтных бригад
+    - Оценка финансового эффекта в тенге и предложение сценариев What-If
     """
-    return ai_engine.ask_copilot(query.question, query.area_id)
+    return ai_engine.chat_with_copilot(req)
+
+
+@router.get("/harness/evaluate", response_model=HarnessEvaluationReport, summary="AI Evaluation Harness (Бенчмарк и оценка качества модели)")
+def run_evaluation_harness():
+    """
+    Прогоняет тестовый харнесс из калиброванных промышленных сценариев.
+    Вычисляет Accuracy, Precision, Recall, F1-score и среднюю задержку инференса.
+    """
+    return ai_engine.run_harness_evaluation()
