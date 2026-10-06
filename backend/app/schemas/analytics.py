@@ -57,8 +57,8 @@ class BusinessEffectResponse(BaseModel):
 
 class WhatIfSimulationRequest(BaseModel):
     scenario: str = "conveyor_and_paint"  # "conveyor_predictive" | "paint_stabilization" | "conveyor_and_paint"
-    downtime_reduction_minutes: Optional[int] = 43
-    quality_boost_percent: Optional[float] = 3.9
+    downtime_reduction_minutes: Optional[int] = None
+    quality_boost_percent: Optional[float] = None
 
 
 class WhatIfSimulationResponse(BaseModel):

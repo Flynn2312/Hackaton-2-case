@@ -104,12 +104,55 @@ export const api = {
 
   async askCopilot(question, areaId = null) {
     try {
-      const res = await fetch(`${BASE}/api/ai/copilot`, {
+      const payload = { message: question, question, area_id: areaId };
+      const res = await fetch(`${BASE}/api/ai/copilot/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, area_id: areaId }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Copilot error");
+      if (res.ok) return await res.json();
+
+      // Запасной путь
+      const fallbackRes = await fetch(`${BASE}/api/ai/copilot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!fallbackRes.ok) throw new Error("Copilot error");
+      return await fallbackRes.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async getPlantOee() {
+    try {
+      return await get("/analytics/oee");
+    } catch {
+      return null;
+    }
+  },
+
+  async getBusinessEffect() {
+    try {
+      return await get("/analytics/business-effect");
+    } catch {
+      return null;
+    }
+  },
+
+  async simulateWhatIf(scenario, downtimeReduction = null, qualityBoost = null) {
+    try {
+      const res = await fetch(`${BASE}/api/analytics/what-if`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scenario,
+          downtime_reduction_minutes: downtimeReduction,
+          quality_boost_percent: qualityBoost,
+        }),
+      });
+      if (!res.ok) throw new Error("What-If simulation error");
       return await res.json();
     } catch {
       return null;

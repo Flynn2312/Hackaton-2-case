@@ -4,15 +4,13 @@ from app.schemas.analytics import (
     PlantOeeResponse, AreaOee, BusinessEffectResponse, FinancialBreakdownItem,
     WhatIfSimulationRequest, WhatIfSimulationResponse
 )
+from app.services.case_data import (
+    SHIFT_MINUTES, TARGET_OEE, MAX_CRITICAL_DOWNTIME_MIN, MAX_DEFECT_PCT,
+    PRODUCTION, DOWNTIME, QUALITY
+)
 
 
-# Базовые константы производства Allur из условий кейса №2
-SHIFT_MINUTES = 480  # 8 часов
-TARGET_OEE = 85.0    # Норматив завода Allur
-TARGET_MAX_DOWNTIME = 60 # Макс простой оборудования в сутки (мин)
-TARGET_MAX_SCRAP = 2.0   # Макс допустимый брак (%)
-
-# Себестоимость простоя и брака (в тенге)
+# Себестоимость простоя и брака (в тенге) — экспертные допущения модели
 HOURLY_DOWNTIME_COST_KZT = 5_100_000   # 5.1 млн тенге / час
 MINUTE_DOWNTIME_COST_KZT = 85_000      # 85 000 тенге / минута
 REWORK_COST_PER_BODY_KZT = 120_000     # 120 тыс тенге перекрас 1 кузова
@@ -32,22 +30,24 @@ class AnalyticsService:
         """
         Расчет сквозного OEE и метрик производственных участков:
         OEE = Availability * Performance * Quality
+        Данные синхронизированы с официальным кейсом за 02.10.2026.
         """
-        # Если подключена база, пытаемся достать актуальные записи
+        # Официальные данные за 02.10.2026:
+        # Сварка: 111 факт, 91% загрузка, 30 мин простой (ABB-04), 2.7% брак (3 шт)
+        # Окраска: 116 факт, 96% загрузка, 40 мин простой (Камера-02), 5.2% брак (6 шт)
+        # Сборка: 119 факт, 99% загрузка, 55 мин простой (Конвейер-03), 1.7% брак (2 шт)
         areas_data = [
             {"id": 1, "name": "Склад комплектующих", "code": "WH-IN", "plan": 120, "fact": 120, "load": 95.0, "downtime": 0, "scrap": 0.0},
-            {"id": 2, "name": "Сварка", "code": "WELD", "plan": 120, "fact": 111, "load": 91.0, "downtime": 30, "scrap": 0.8},
-            {"id": 3, "name": "Окраска", "code": "PAINT", "plan": 120, "fact": 114, "load": 95.0, "downtime": 40, "scrap": 5.2},
-            {"id": 4, "name": "Сборка", "code": "ASSY", "plan": 120, "fact": 112, "load": 93.0, "downtime": 55, "scrap": 1.1},
-            {"id": 5, "name": "Контроль качества", "code": "QC", "plan": 120, "fact": 110, "load": 92.0, "downtime": 10, "scrap": 1.5},
-            {"id": 6, "name": "Склад готовой продукции", "code": "WH-OUT", "plan": 120, "fact": 110, "load": 92.0, "downtime": 0, "scrap": 0.0},
+            {"id": 2, "name": "Сварка", "code": "WELD", "plan": 120, "fact": 111, "load": 91.0, "downtime": 30, "scrap": 2.7},
+            {"id": 3, "name": "Окраска", "code": "PAINT", "plan": 120, "fact": 116, "load": 96.0, "downtime": 40, "scrap": 5.2},
+            {"id": 4, "name": "Сборка", "code": "ASSY", "plan": 120, "fact": 119, "load": 99.0, "downtime": 55, "scrap": 1.7},
+            {"id": 5, "name": "Контроль качества", "code": "QC", "plan": 120, "fact": 117, "load": 95.0, "downtime": 5, "scrap": 0.5},
+            {"id": 6, "name": "Склад готовой продукции", "code": "WH-OUT", "plan": 120, "fact": 117, "load": 95.0, "downtime": 0, "scrap": 0.0},
         ]
 
         if db:
             try:
-                # Попытка обогатить данными из БД
                 prod_records = db.table("production_records").select("*").limit(200).execute().data
-                quality_records = db.table("quality_records").select("*").limit(200).execute().data
                 if prod_records:
                     for a in areas_data:
                         area_prod = [r for r in prod_records if r.get("production_area_id") == a["id"]]
@@ -76,7 +76,7 @@ class AnalyticsService:
             status = "ok"
             if a["downtime"] > 45 or a["scrap"] > 3.0 or area_oee < 80.0:
                 status = "bad"
-            elif a["downtime"] > 25 or a["scrap"] > TARGET_MAX_SCRAP or area_oee < TARGET_OEE:
+            elif a["downtime"] > 25 or a["scrap"] > MAX_DEFECT_PCT or area_oee < TARGET_OEE:
                 status = "warn"
 
             calculated_areas.append(AreaOee(
@@ -92,11 +92,12 @@ class AnalyticsService:
                 status=status
             ))
 
-        overall_oee = round(sum(oee_values[1:5]) / 4.0, 1)  # среднее по 4 ключевым линиям
+        # Средний OEE технологических участков (Сварка, Окраска, Сборка, Контроль качества)
+        main_areas = calculated_areas[1:5]
+        overall_oee = round(sum(a.oee for a in main_areas) / len(main_areas), 1)
         overall_status = "ok" if overall_oee >= TARGET_OEE else ("warn" if overall_oee >= 75.0 else "bad")
 
-        # Определение главного узкого места (Bottleneck)
-        worst_area = min(calculated_areas[1:5], key=lambda x: x.oee)
+        worst_area = min(main_areas, key=lambda x: x.oee)
 
         return PlantOeeResponse(
             factory_name="АО «Группа компаний АЛЛЮР» (Костанай)",
@@ -106,26 +107,23 @@ class AnalyticsService:
             shift_hours=8,
             areas=calculated_areas,
             bottleneck_area=f"{worst_area.area_name} (OEE: {worst_area.oee}%, Брак: {worst_area.scrap_percent}%, Простой: {worst_area.downtime_minutes} мин)",
-            summary=f"Текущий OEE {overall_oee}% ниже норматива {TARGET_OEE}%. Критические узкие места: Окрасочная камера-02 (брак {worst_area.scrap_percent}%) и Конвейер-03 (обрыв цепи 55 мин)."
+            summary=f"Текущий OEE {overall_oee}% (норматив {TARGET_OEE}%). Узкие места: {worst_area.area_name} (OEE {worst_area.oee}%), Окраска (брак 5.2%) и Конвейер-03 (простой 55 мин)."
         )
 
     @staticmethod
     def get_business_effect() -> BusinessEffectResponse:
         """
         Финансово-экономическая модель окупаемости цифрового двойника Allur:
-        1.2 млрд тенге годового эффекта при окупаемости 2.8 месяца.
+        ~1.2 млрд тенге годового эффекта при окупаемости менее 1 месяца (чистый срок 0.9 мес).
         """
-        # Расчет 1: Экономия на простоях (-18.5% от 780 часов/год = 145 часов)
         downtime_savings = 145 * HOURLY_DOWNTIME_COST_KZT  # 739 500 000 ₸
-
-        # Расчет 2: Экономия на браке ЛКП (с 4.2% до 1.3% = 930 кузовов * 120 000 ₸)
         scrap_savings = 930 * REWORK_COST_PER_BODY_KZT     # 111 600 000 ₸
-
-        # Расчет 3: Маржа от синхронизации сварки и сборки (+240 авто * 1.45 млн ₸)
         throughput_gain = 240 * MARGIN_PER_VEHICLE_KZT     # 348 000 000 ₸
 
         total_annual_kzt = downtime_savings + scrap_savings + throughput_gain  # 1 199 100 000 ₸
-        payback_months = round(PLATFORM_CAPEX_KZT / (total_annual_kzt / 12.0), 1)
+        # Чистый срок окупаемости с учетом годового OPEX:
+        net_annual_kzt = max(1, total_annual_kzt - ANNUAL_OPEX_KZT)
+        payback_months = round(PLATFORM_CAPEX_KZT / (net_annual_kzt / 12.0), 1)
 
         breakdown = [
             FinancialBreakdownItem(
@@ -159,33 +157,70 @@ class AnalyticsService:
             hourly_downtime_cost_kzt=HOURLY_DOWNTIME_COST_KZT,
             minute_downtime_cost_kzt=MINUTE_DOWNTIME_COST_KZT,
             breakdown=breakdown,
-            justification="Оценка базируется на нормативах такта Allur (4 мин/кузов), стоимости перекраса кузова 120 000 ₸ и маржинальности 1.45 млн ₸ на автомобиль. Решение окупается за 2.8 месяца."
+            justification=f"Оценка базируется на нормативах такта Allur (4 мин/кузов), стоимости перекраса кузова 120 000 ₸ и маржинальности 1.45 млн ₸ на автомобиль. Решение окупается за {payback_months} месяца (CAPEX 85 млн ₸, OPEX 20 млн ₸/год)."
         )
 
     @staticmethod
     def simulate_what_if(req: WhatIfSimulationRequest) -> WhatIfSimulationResponse:
         """
-        Сценарное моделирование превентивных решений What-If
+        Сценарное моделирование превентивных решений What-If с физическим пересчетом метрик.
         """
-        original_oee = 78.3
-        downtime_reduction = req.downtime_reduction_minutes or 43
-        quality_delta = req.quality_boost_percent or 3.9
+        # Базовый OEE берем из актуальной модели завода
+        base_status = AnalyticsService.get_plant_oee()
+        original_oee = base_status.actual_oee
 
-        if req.scenario == "conveyor_predictive":
-            simulated_oee = 85.8
-            shift_gain = 3_655_000
+        # Валидация сценария и входных параметров
+        valid_scenarios = {"conveyor_predictive", "paint_stabilization", "conveyor_and_paint"}
+        has_negative = (req.downtime_reduction_minutes is not None and req.downtime_reduction_minutes < 0) or \
+                       (req.quality_boost_percent is not None and req.quality_boost_percent < 0)
+
+        if (req.scenario not in valid_scenarios) or has_negative:
+            return WhatIfSimulationResponse(
+                scenario_title="Ошибка валидации сценария",
+                original_oee=original_oee,
+                simulated_oee=original_oee,
+                oee_delta=0.0,
+                downtime_saved_minutes=0,
+                quality_delta_percent=0.0,
+                shift_economic_gain_kzt=0,
+                status="error",
+                details=f"Недопустимый сценарий '{req.scenario}' или отрицательные параметры (минуты: {req.downtime_reduction_minutes}, качество: {req.quality_boost_percent})."
+            )
+
+        # Корректная обработка значений: None -> дефолт, иначе число
+        downtime_reduction = 43 if req.downtime_reduction_minutes is None else max(0, req.downtime_reduction_minutes)
+        quality_delta = 3.9 if req.quality_boost_percent is None else max(0.0, req.quality_boost_percent)
+
+        scenario = req.scenario or "conveyor_and_paint"
+
+        if scenario == "conveyor_predictive":
             title = "Превентивное ТО Конвейера-03 сборки"
-            details = "Замена дефектного звена в окно пересменки за 12 мин вместо аварийного останова на 55 мин. OEE сборки восстанавливается до норматива."
-        elif req.scenario == "paint_stabilization":
-            simulated_oee = 83.1
-            shift_gain = 1_020_000
+            # Сокращение простоя конвейера сборки на downtime_reduction мин
+            # Прибавка OEE сборки: + (downtime_reduction / 480) * 100
+            # Вклад в общий OEE (1/4 веса):
+            oee_gain = round((downtime_reduction / 480.0) * 25.0, 1)
+            simulated_oee = round(min(99.0, original_oee + oee_gain), 1)
+            shift_gain = int(downtime_reduction * MINUTE_DOWNTIME_COST_KZT)
+            details = f"Предотвращение аварийного простоя Конвейера-03 на {downtime_reduction} мин. Сэкономлено {shift_gain:,.0f} ₸ за смену."
+
+        elif scenario == "paint_stabilization":
             title = "Стабилизация микроклимата Камеры окраски-02"
-            details = "Коррекция вязкости эмали и температуры сушки 142°C. Брак ЛКП снижен с 5.2% до 1.3%."
+            # Снижение брака окраски на quality_delta %
+            oee_gain = round((quality_delta / 100.0) * 25.0, 1)
+            simulated_oee = round(min(99.0, original_oee + oee_gain), 1)
+            saved_bodies = int(round(120 * (quality_delta / 100.0)))
+            shift_gain = int(saved_bodies * REWORK_COST_PER_BODY_KZT)
+            details = f"Снижение брака ЛКП на {quality_delta:.1f}%. Сохранено {saved_bodies} кузовов от перекраса (экономия {shift_gain:,.0f} ₸)."
+
         else:
-            simulated_oee = 89.6
-            shift_gain = 4_675_000
             title = "Комплексная оптимизация завода Allur"
-            details = "Одновременное предотвращение аварии конвейера сборки и нормализация качества окраски. Завод полностью выполняет сменный план."
+            conveyor_gain = (downtime_reduction / 480.0) * 25.0
+            paint_gain = (quality_delta / 100.0) * 25.0
+            oee_gain = round(conveyor_gain + paint_gain, 1)
+            simulated_oee = round(min(99.0, original_oee + oee_gain), 1)
+            saved_bodies = int(round(120 * (quality_delta / 100.0)))
+            shift_gain = int(downtime_reduction * MINUTE_DOWNTIME_COST_KZT + saved_bodies * REWORK_COST_PER_BODY_KZT)
+            details = f"Комплексный предиктивный эффект: экономия {downtime_reduction} мин простоя сборки и снижение брака окраски на {quality_delta:.1f}%. Суммарная выгода: {shift_gain:,.0f} ₸ за смену."
 
         return WhatIfSimulationResponse(
             scenario_title=title,

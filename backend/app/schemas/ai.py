@@ -3,16 +3,16 @@ from typing import List, Optional, Dict, Any
 
 
 class ConveyorTelemetryRequest(BaseModel):
-    vibration_rms: float = Field(default=6.8, description="СКЗ виброскорости привода, мм/с (норма ISO ≤2.5)")
-    temp_celsius: float = Field(default=68.5, description="Температура редуктора, °C (норма ≤60)")
-    operating_hours: int = Field(default=8905, description="Наработка тяговой цепи с момента капремонта, часов")
+    vibration_rms: float = Field(default=6.8, ge=0.0, le=100.0, description="СКЗ виброскорости привода, мм/с (норма ISO ≤2.5)")
+    temp_celsius: float = Field(default=68.5, ge=-20.0, le=200.0, description="Температура редуктора, °C (норма ≤60)")
+    operating_hours: int = Field(default=8905, ge=0, le=200000, description="Наработка тяговой цепи с момента капремонта, часов")
 
 
 class PaintTelemetryRequest(BaseModel):
-    drying_temp_celsius: float = Field(default=147.5, description="Температура сушильной печи, °C (норма 140±2°C)")
-    enamel_viscosity_sec: float = Field(default=26.0, description="Вязкость эмали по ВЗ-4, сек (норма 20-22с)")
-    relative_humidity_pct: float = Field(default=74.0, description="Относительная влажность камеры, % (норма 60-70%)")
-    filter_pressure_kpa: float = Field(default=18.5, description="Перепад давления на фильтрах, кПа (норма ≤15 кПа)")
+    drying_temp_celsius: float = Field(default=147.5, ge=0.0, le=300.0, description="Температура сушильной печи, °C (норма 140±2°C)")
+    enamel_viscosity_sec: float = Field(default=26.0, ge=5.0, le=120.0, description="Вязкость эмали по ВЗ-4, сек (норма 20-22с)")
+    relative_humidity_pct: float = Field(default=74.0, ge=0.0, le=100.0, description="Относительная влажность камеры, % (норма 60-70%)")
+    filter_pressure_kpa: float = Field(default=18.5, ge=0.0, le=100.0, description="Перепад давления на фильтрах, кПа (норма ≤15 кПа)")
 
 
 class EquipmentPredictionResponse(BaseModel):
@@ -41,6 +41,7 @@ class AiAlertItem(BaseModel):
 
 class AiForecastSummaryResponse(BaseModel):
     factory_name: str
+    timestamp: Optional[str] = None
     overall_threat_level: str
     active_threats_count: int
     bottleneck_area: str
@@ -55,9 +56,13 @@ class CopilotMessage(BaseModel):
 
 
 class CopilotChatRequest(BaseModel):
-    message: str
+    message: Optional[str] = None
+    question: Optional[str] = None
     history: Optional[List[CopilotMessage]] = []
     area_id: Optional[int] = None
+
+    def get_query(self) -> str:
+        return (self.message or self.question or "").strip()
 
 
 class CopilotChatResponse(BaseModel):

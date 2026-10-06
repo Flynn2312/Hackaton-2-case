@@ -38,6 +38,7 @@ def predict_paint(telemetry: PaintTelemetryRequest):
 
 
 @router.post("/copilot/chat", response_model=CopilotChatResponse, summary="Интерактивный диалог с AI Copilot завода Allur")
+@router.post("/copilot", response_model=CopilotChatResponse, summary="Алиас для диалога с AI Copilot завода Allur")
 def chat_with_copilot(req: CopilotChatRequest):
     """
     Полноценная коммуникация с ИИ:

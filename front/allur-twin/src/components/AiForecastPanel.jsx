@@ -1,12 +1,15 @@
+import { useEffect, useState } from "react";
+import { api } from "../api";
+
 export default function AiForecastPanel({ onSelectZone }) {
-  const alerts = [
+  const [alerts, setAlerts] = useState([
     {
       id: "alert-1",
       zoneId: 4, // Сборка
       zoneName: "Сборка-1",
       equipment: "Главный Конвейер-03",
       severity: "critical",
-      metric: "Вибрация: 6.8 мм/с (Норма: ≤2.5 мм/с)",
+      metric: "Вибрация: 6.8 мм/с (Норма ISO: ≤2.5 мм/с)",
       riskScore: 88,
       cause: "Усталостное растяжение тяговой цепи после 8 905 ч наработки",
       recommendation: "Превентивная замена дефектного звена в окно пересменки (12 мин). Предотвратит аварию на 55 минут.",
@@ -20,9 +23,29 @@ export default function AiForecastPanel({ onSelectZone }) {
       metric: "Температура сушки: 147.5°C (Норма: 140±2°C)",
       riskScore: 72,
       cause: "Дрейф термодатчика после замены фильтра привел к шагрени и браку 5.2%",
-      recommendation: "Калибровка термостата и коррекция вязкости эмали до 22с. Снизит брак до нормы ≤2.0%.",
+      recommendation: "Калибровка термостата и коррекция вязкости эмали до 21с. Снизит брак до нормы ≤2.0%.",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    let alive = true;
+    api.getAiForecast().then((data) => {
+      if (!alive || !data || !data.alerts) return;
+      const mapped = data.alerts.map((a) => ({
+        id: a.id,
+        zoneId: a.production_area_id,
+        zoneName: a.production_area_name,
+        equipment: a.equipment_name,
+        severity: a.severity,
+        metric: a.metric_summary,
+        riskScore: a.risk_score,
+        cause: a.root_cause,
+        recommendation: a.recommendation,
+      }));
+      if (mapped.length > 0) setAlerts(mapped);
+    });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs space-y-4">

@@ -37,3 +37,20 @@ def run_what_if_simulation(request: WhatIfSimulationRequest):
     стабилизация температуры окраски, комплексная оптимизация смены.
     """
     return AnalyticsService.simulate_what_if(request)
+
+
+@router.get("/data-quality", summary="Аудит расхождений и коллизий производственных данных")
+def get_data_quality_audit():
+    """
+    Автоматический аудит коллизий данных Allur:
+    - Несовпадение потерь времени работы с журналом аварийных простоев
+    - Дефицит месячного плана выпуска по моделям относительно норматива завода (5 500 авто)
+    - Опережение нормативного такта на финишной линии сборки
+    """
+    from app.services.case_data import data_quality_issues
+    return {
+        "status": "success",
+        "factory": "АО «Группа компаний АЛЛЮР»",
+        "total_issues": len(data_quality_issues()),
+        "issues": data_quality_issues()
+    }

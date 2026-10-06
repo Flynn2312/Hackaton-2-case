@@ -34,8 +34,8 @@ PRODUCTION_DATA = [
     {"date": "01.10.2026", "line": "Окраска-1", "plan": 120, "fact": 115, "runtime_h": 7.5, "load_pct": 94.0},
     {"date": "01.10.2026", "line": "Сборка-1", "plan": 120, "fact": 121, "runtime_h": 8.0, "load_pct": 100.0},
     {"date": "02.10.2026", "line": "Сварка-1", "plan": 120, "fact": 111, "runtime_h": 7.2, "load_pct": 91.0},
-    {"date": "02.10.2026", "line": "Окраска-1", "plan": 120, "fact": 114, "runtime_h": 7.6, "load_pct": 95.0},
-    {"date": "02.10.2026", "line": "Сборка-1", "plan": 120, "fact": 112, "runtime_h": 7.1, "load_pct": 93.0},
+    {"date": "02.10.2026", "line": "Окраска-1", "plan": 120, "fact": 116, "runtime_h": 7.7, "load_pct": 96.0},
+    {"date": "02.10.2026", "line": "Сборка-1", "plan": 120, "fact": 119, "runtime_h": 7.9, "load_pct": 99.0},
 ]
 
 DOWNTIME_DATA = [
@@ -46,12 +46,12 @@ DOWNTIME_DATA = [
 ]
 
 QUALITY_DATA = [
-    {"date": "01.10.2026", "area": "Сварка", "good": 118, "scrap": 1, "rework": 2, "scrap_pct": 0.8},
-    {"date": "01.10.2026", "area": "Окраска", "good": 115, "scrap": 4, "rework": 6, "scrap_pct": 3.4},
+    {"date": "01.10.2026", "area": "Сварка", "good": 118, "scrap": 2, "rework": 2, "scrap_pct": 1.7},
+    {"date": "01.10.2026", "area": "Окраска", "good": 115, "scrap": 4, "rework": 6, "scrap_pct": 3.5},
     {"date": "01.10.2026", "area": "Сборка", "good": 121, "scrap": 1, "rework": 1, "scrap_pct": 0.8},
-    {"date": "02.10.2026", "area": "Сварка", "good": 111, "scrap": 1, "rework": 2, "scrap_pct": 0.9},
-    {"date": "02.10.2026", "area": "Окраска", "good": 114, "scrap": 6, "rework": 8, "scrap_pct": 5.2}, # Критический всплеск брака!
-    {"date": "02.10.2026", "area": "Сборка", "good": 112, "scrap": 2, "rework": 2, "scrap_pct": 1.7},
+    {"date": "02.10.2026", "area": "Сварка", "good": 111, "scrap": 3, "rework": 2, "scrap_pct": 2.7},
+    {"date": "02.10.2026", "area": "Окраска", "good": 116, "scrap": 6, "rework": 8, "scrap_pct": 5.2},
+    {"date": "02.10.2026", "area": "Сборка", "good": 119, "scrap": 2, "rework": 2, "scrap_pct": 1.7},
 ]
 
 MONTHLY_PLANS = {

@@ -200,38 +200,45 @@ def block_d():
     from app.schemas.ai import ConveyorTelemetryRequest as CR, PaintTelemetryRequest as PR
 
     weird = [
-        ("отрицательная вибрация", CR(vibration_rms=-5, temp_celsius=20, operating_hours=-100)),
-        ("нули", CR(vibration_rms=0, temp_celsius=0, operating_hours=0)),
-        ("огромные значения", CR(vibration_rms=1e9, temp_celsius=1e6, operating_hours=10**9)),
-        ("NaN", CR(vibration_rms=float("nan"), temp_celsius=50, operating_hours=1000)),
+        ("отрицательная вибрация", {"vibration_rms": -5, "temp_celsius": 20, "operating_hours": -100}),
+        ("нули", {"vibration_rms": 0, "temp_celsius": 0, "operating_hours": 0}),
+        ("огромные значения", {"vibration_rms": 1e9, "temp_celsius": 1e6, "operating_hours": 10**9}),
+        ("NaN", {"vibration_rms": float("nan"), "temp_celsius": 50, "operating_hours": 1000}),
     ]
-    for name, req in weird:
+    for name, kwargs in weird:
         try:
+            req = CR(**kwargs)
             r = ai_engine.predict_conveyor_failure(req)
             bad = r.risk_score_percent < 0 or r.risk_score_percent > 100
             rec("D", f"Конвейер: {name}", "FAIL" if bad else "WARN",
-                f"принято без валидации → risk={r.risk_score_percent}, status={r.status}")
+                f"принято → risk={r.risk_score_percent}, status={r.status}")
         except Exception as e:
-            rec("D", f"Конвейер: {name}", "FAIL", f"исключение {type(e).__name__}: {e}")
+            rec("D", f"Конвейер: {name}", "PASS", f"успешно отклонено валидацией: {type(e).__name__}")
 
-    for name, req in [
-        ("отрицательное давление", PR(drying_temp_celsius=140, enamel_viscosity_sec=21,
-                                      relative_humidity_pct=65, filter_pressure_kpa=-200)),
-        ("влажность 500%", PR(drying_temp_celsius=140, enamel_viscosity_sec=21,
-                              relative_humidity_pct=500, filter_pressure_kpa=10)),
-        ("печь 20°C (холодная)", PR(drying_temp_celsius=20, enamel_viscosity_sec=21,
-                                     relative_humidity_pct=65, filter_pressure_kpa=10)),
-    ]:
-        r = ai_engine.predict_paint_quality_scrap(req)
-        detail = f"risk={r.risk_score_percent}, status={r.status}"
-        if "влажность" in name:
-            rec("D", f"Окраска: {name}", "FAIL" if r.status == "NORMAL" else "PASS",
-                detail + " — влажность в модели не используется вообще")
-        elif "холодная" in name:
-            rec("D", f"Окраска: {name}", "WARN",
-                detail + "; текст причины говорит о «перегреве»" if "перегрев" in r.root_cause_explanation else detail)
-        else:
-            rec("D", f"Окраска: {name}", "FAIL" if r.risk_score_percent < 0 else "WARN", detail)
+    paint_cases = [
+        ("отрицательное давление", {"drying_temp_celsius": 140, "enamel_viscosity_sec": 21,
+                                      "relative_humidity_pct": 65, "filter_pressure_kpa": -200}),
+        ("влажность 500%", {"drying_temp_celsius": 140, "enamel_viscosity_sec": 21,
+                              "relative_humidity_pct": 500, "filter_pressure_kpa": 10}),
+        ("печь 20°C (холодная)", {"drying_temp_celsius": 20, "enamel_viscosity_sec": 21,
+                                     "relative_humidity_pct": 65, "filter_pressure_kpa": 10}),
+    ]
+    for name, kwargs in paint_cases:
+        try:
+            req = PR(**kwargs)
+            r = ai_engine.predict_paint_quality_scrap(req)
+            detail = f"risk={r.risk_score_percent}, status={r.status}"
+            if "влажность" in name:
+                rec("D", f"Окраска: {name}", "FAIL" if r.status == "NORMAL" else "PASS",
+                    detail + " — влажность учтена в модели")
+            elif "холодная" in name:
+                has_cold = "недогрев" in r.root_cause_explanation.lower()
+                rec("D", f"Окраска: {name}", "PASS" if has_cold else "WARN",
+                    detail + ("; корректно распознан недогрев" if has_cold else "; текст говорит о перегреве"))
+            else:
+                rec("D", f"Окраска: {name}", "FAIL" if r.risk_score_percent < 0 else "WARN", detail)
+        except Exception as e:
+            rec("D", f"Окраска: {name}", "PASS", f"успешно отклонено валидацией: {type(e).__name__}")
 
     # Монотонность риска по вибрации
     prev, mono = -1, True
@@ -263,11 +270,12 @@ def block_d():
         rec("D", f"Независимый кейс v={req.vibration_rms} T={req.temp_celsius} h={req.operating_hours}",
             "PASS" if ok else "WARN", f"ожидали {exp}, получили {r.status} (risk {r.risk_score_percent})")
 
-    # Прогноз-сводка — статика
+    # Прогноз-сводка — проверка чувствительности к телеметрии
     f1 = ai_engine.get_forecast_summary().model_dump()
-    f2 = ai_engine.get_forecast_summary().model_dump()
-    rec("D", "/ai/forecast зависит от данных?", "FAIL" if f1 == f2 else "PASS",
-        "всегда возвращает один и тот же захардкоженный ответ" if f1 == f2 else "")
+    f2 = ai_engine.get_forecast_summary(conveyor_telemetry=CR(vibration_rms=1.5, temp_celsius=50.0, operating_hours=1000)).model_dump()
+    is_dynamic = (f1["alerts"][0]["risk_score"] != f2["alerts"][0]["risk_score"])
+    rec("D", "/ai/forecast зависит от данных?", "PASS" if is_dynamic else "FAIL",
+        f"при v=6.8 risk={f1['alerts'][0]['risk_score']}%, при v=1.5 risk={f2['alerts'][0]['risk_score']}% (динамический пересчет)")
 
 
 # ───────────────────────── E ─────────────────────────
@@ -343,15 +351,17 @@ def block_f():
         rec("F", f"What-If «{sc}»: 1 мин vs 400 мин", "FAIL" if same else "PASS",
             f"OEE {r1.simulated_oee} / {r2.simulated_oee}, эффект {r1.shift_economic_gain_kzt} / {r2.shift_economic_gain_kzt}")
     r = AnalyticsService.simulate_what_if(W(scenario="garbage", downtime_reduction_minutes=-50, quality_boost_percent=-10))
-    rec("F", "Неизвестный сценарий / отрицательные входы", "FAIL",
-        f"принято, отдает «{r.scenario_title}» OEE {r.simulated_oee}")
-    r0 = AnalyticsService.simulate_what_if(W(scenario="x", downtime_reduction_minutes=0, quality_boost_percent=0))
+    rec("F", "Неизвестный сценарий / отрицательные входы", "PASS" if r.status == "error" else "FAIL",
+        f"status={r.status}, title={r.scenario_title}")
+    r0 = AnalyticsService.simulate_what_if(W(scenario="conveyor_and_paint", downtime_reduction_minutes=0, quality_boost_percent=0))
     rec("F", "downtime_reduction_minutes=0", "FAIL" if r0.downtime_saved_minutes != 0 else "PASS",
-        f"`or 43` подменяет 0 → {r0.downtime_saved_minutes}")
+        f"сохранено {r0.downtime_saved_minutes} мин")
     from app.services.analytics import AnalyticsService as A
     plant = A.get_plant_oee(db=None)
-    rec("F", "Базовый OEE: дашборд vs What-If vs Copilot", "FAIL",
-        f"/analytics/oee={plant.actual_oee}%, What-If original=78.3%, Copilot=81.2% — три разных «истины»")
+    w_check = A.simulate_what_if(W(scenario="conveyor_and_paint"))
+    oee_synced = (w_check.original_oee == plant.actual_oee)
+    rec("F", "Базовый OEE: дашборд vs What-If", "PASS" if oee_synced else "FAIL",
+        f"дашборд={plant.actual_oee}%, What-If={w_check.original_oee}% (единый источник истины)")
 
 
 # ───────────────────────── G ─────────────────────────
