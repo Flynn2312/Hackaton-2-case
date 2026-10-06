@@ -218,6 +218,15 @@ def data_quality_issues() -> List[Dict[str, Any]]:
         if abs(calc - q["defect_pct"]) > 0.1:
             issues.append({"severity": "warning", "category": "Качество", "date": q["date"], "area": q["area"],
                            "message": f"% брака {q['defect_pct']} не совпадает с расчетом {calc}", "evidence": ""})
+        if q["defect_pct"] > MAX_DEFECT_PCT:
+            issues.append({
+                "severity": "critical" if q["defect_pct"] >= 5.0 else "warning",
+                "category": "Качество (превышение норматива брака)",
+                "date": q["date"],
+                "area": q["area"],
+                "message": f"{q['area']} {q['date']}: брак {q['defect_pct']}% превышает норматив Allur (≤{MAX_DEFECT_PCT}%)",
+                "evidence": f"забраковано {q['defects']} из {q['produced']} кузовов",
+            })
     for p in PRODUCTION:
         q = quality(p["date"], p["area"])
         if q and q["produced"] != p["fact"]:

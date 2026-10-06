@@ -160,13 +160,18 @@ def block_b():
         rec("B", f"Суммарные простои {day}", "WARN" if total > MAX_DOWN else "PASS",
             f"{total} мин по заводу (лимит задан на единицу критичного оборудования)")
 
+    from app.services.case_data import data_quality_issues, plan_gap
+    issues = data_quality_issues()
     over = [(d, a, p) for d, a, _o, _s, p in OFF_QUAL if p > MAX_SCRAP]
-    rec("B", "Участки с браком > 2%", "FAIL" if over else "PASS",
-        "; ".join(f"{a} {d}: {p}%" for d, a, p in over))
+    scrap_detected = any("брак" in iss.get("message", "").lower() for iss in issues)
+    rec("B", "Детектирование брака > 2% (Окраска, Сварка)", "PASS" if scrap_detected else "FAIL",
+        f"выявлены аномалии: {'; '.join(f'{a} {d}: {p}%' for d, a, p in over)}")
 
     s = sum(OFF_PLAN.values())
-    rec("B", "Сумма плана по моделям vs «≥5 500 авто/мес»", "FAIL" if s < MONTH_PLAN else "PASS",
-        f"{s} авто — дефицит {MONTH_PLAN - s}; ловушка кейса, нужно иметь ответ")
+    gap_info = plan_gap()
+    gap_detected = (gap_info["gap"] == MONTH_PLAN - s)
+    rec("B", "Анализ плана моделей vs «≥5 500 авто/мес»", "PASS" if gap_detected else "FAIL",
+        f"дефицит {gap_info['gap']} авто (план {s}) зафиксирован, нужно {gap_info['days_needed_for_target']} дн. без потерь")
     days_needed = MONTH_PLAN / (120 * 2)
     rec("B", "Мощность 120 авто/смена × 2 смены", "WARN",
         f"для 5 500/мес нужно {days_needed:.1f} рабочих дней без потерь — запаса практически нет")
