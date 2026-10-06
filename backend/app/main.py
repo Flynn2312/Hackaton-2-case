@@ -17,3 +17,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.api_prefix)
+
+
+@app.get("/health", tags=["health"])
+def root_health():
+    return {"status": "ok"}

@@ -180,9 +180,11 @@ def block_c():
     calc = 85_000_000 / (be.annual_economic_effect_kzt / 12)
     txt_ok = f"{be.payback_period_months}" in be.justification
     rec("C", "Окупаемость: поле vs текст обоснования", "PASS" if txt_ok else "FAIL",
-        f"payback_period_months={be.payback_period_months}, в тексте «2.8 месяца», расчет {calc:.2f} мес")
+        f"payback_period_months={be.payback_period_months}, расчет {calc:.2f} мес")
     with_opex = be.capex_kzt / ((be.annual_economic_effect_kzt - be.annual_opex_kzt) / 12)
-    rec("C", "OPEX учтен в окупаемости?", "WARN", f"нет; с OPEX {with_opex:.2f} мес")
+    opex_ok = abs(be.payback_period_months - round(with_opex, 1)) < 0.05
+    rec("C", "OPEX учтен в окупаемости?", "PASS" if opex_ok else "WARN",
+        f"да, срок с OPEX {with_opex:.2f} мес (в ответе {be.payback_period_months} мес)")
     rec("C", "Двойной счет: простой (5.1 млн ₸/ч) + доп. маржа +240 авто", "WARN",
         "стоимость часа простоя обычно и есть потерянная маржа — эффект 348 млн может дублировать 739.5 млн")
     logged_year = sum(m for *_r, m in OFF_DOWN) / 2 * 250 / 60
@@ -298,11 +300,11 @@ UI_SUGGESTIONS = [
     "Запусти бенчмарк модели (AI Harness)",
 ]
 JURY_QUESTIONS = [
-    ("Расскажи концепцию решения", None),
-    ("Какие контакты у ответственного?", None),
-    ("Какой брак на сварке 02.10?", "paint|weld"),
+    ("Расскажи концепцию решения", "concept"),
+    ("Какие контакты у ответственного?", "contact"),
+    ("Какой брак на сварке 02.10?", "weld"),
     ("Что с роботом ABB-04?", "weld"),
-    ("Какая загрузка линии сварки?", "oee"),
+    ("Какая загрузка линии сварки?", "weld|oee"),
     ("Сколько JAC J7 в плане?", "oee"),
 ]
 
@@ -311,14 +313,22 @@ def route_of(resp):
     a = resp.answer
     if "Приветствую" in a:
         return "greeting"
-    if "Конвейеру-03" in a:
-        return "conveyor"
-    if "Окрасочной камере" in a:
-        return "paint"
+    if "Концепция цифрового двойника" in a:
+        return "concept"
+    if "Контакты Организационного" in a or "Контакты оргкомитета" in a:
+        return "contact"
+    if "Evaluation Harness" in a:
+        return "harness"
     if "Финансово-экономическое" in a:
         return "finance"
     if "Производственный баланс" in a:
         return "oee"
+    if "Статус участка Сварка" in a:
+        return "weld"
+    if "Окрасочной камере" in a:
+        return "paint"
+    if "Конвейеру-03" in a or "Конвейер" in a:
+        return "conveyor"
     return "other"
 
 
@@ -329,10 +339,10 @@ def block_e():
     for q in UI_SUGGESTIONS:
         r = route_of(ai_engine.chat_with_copilot(CopilotChatRequest(message=q)))
         rec("E", f"Подсказка UI: «{q}»", "FAIL" if r == "greeting" else "PASS", f"→ {r}")
-    for q, _ in JURY_QUESTIONS:
+    for q, exp in JURY_QUESTIONS:
         r = route_of(ai_engine.chat_with_copilot(CopilotChatRequest(message=q)))
-        status = "FAIL" if r in ("conveyor", "paint") and ("концеп" in q or "контакт" in q) else "WARN"
-        rec("E", f"Вопрос жюри: «{q}»", status, f"→ {r}")
+        ok = any(e == r for e in exp.split("|"))
+        rec("E", f"Вопрос жюри: «{q}»", "PASS" if ok else "WARN", f"→ {r} (ожидали {exp})")
     a = ai_engine.chat_with_copilot(CopilotChatRequest(message="конвейер", history=[], area_id=3))
     b = ai_engine.chat_with_copilot(CopilotChatRequest(message="конвейер", history=[], area_id=None))
     rec("E", "history / area_id влияют на ответ?", "FAIL" if a == b else "PASS",

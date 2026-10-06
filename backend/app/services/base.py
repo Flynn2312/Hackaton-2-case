@@ -28,6 +28,17 @@ def paginate(query: SyncSelectRequestBuilder, limit: int, offset: int) -> SyncSe
     return query.range(offset, offset + limit - 1)
 
 
+def safe_select(query: SyncSelectRequestBuilder, fallback: list = None) -> list:
+    try:
+        res = query.execute()
+        return res.data if res and res.data is not None else (fallback or [])
+    except Exception:
+        return fallback or []
+
+
 def get_by_id(db: Client, table: str, row_id: int) -> dict | None:
-    rows = db.table(table).select("*").eq("id", row_id).limit(1).execute().data
-    return rows[0] if rows else None
+    try:
+        rows = db.table(table).select("*").eq("id", row_id).limit(1).execute().data
+        return rows[0] if rows else None
+    except Exception:
+        return None

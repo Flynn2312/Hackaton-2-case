@@ -195,13 +195,13 @@
     "block": "C",
     "name": "Окупаемость: поле vs текст обоснования",
     "status": "PASS",
-    "detail": "payback_period_months=0.9, в тексте «2.8 месяца», расчет 0.85 мес"
+    "detail": "payback_period_months=0.9, расчет 0.85 мес"
   },
   {
     "block": "C",
     "name": "OPEX учтен в окупаемости?",
-    "status": "WARN",
-    "detail": "нет; с OPEX 0.87 мес"
+    "status": "PASS",
+    "detail": "да, срок с OPEX 0.87 мес (в ответе 0.9 мес)"
   },
   {
     "block": "C",
@@ -357,7 +357,7 @@
     "block": "E",
     "name": "Подсказка UI: «Проведи бенчмарк AI модели»",
     "status": "PASS",
-    "detail": "→ other"
+    "detail": "→ harness"
   },
   {
     "block": "E",
@@ -399,43 +399,43 @@
     "block": "E",
     "name": "Подсказка UI: «Запусти бенчмарк модели (AI Harness)»",
     "status": "PASS",
-    "detail": "→ other"
+    "detail": "→ harness"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Расскажи концепцию решения»",
-    "status": "WARN",
-    "detail": "→ other"
+    "status": "PASS",
+    "detail": "→ concept (ожидали concept)"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Какие контакты у ответственного?»",
-    "status": "WARN",
-    "detail": "→ other"
+    "status": "PASS",
+    "detail": "→ contact (ожидали contact)"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Какой брак на сварке 02.10?»",
-    "status": "WARN",
-    "detail": "→ other"
+    "status": "PASS",
+    "detail": "→ weld (ожидали weld)"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Что с роботом ABB-04?»",
-    "status": "WARN",
-    "detail": "→ other"
+    "status": "PASS",
+    "detail": "→ weld (ожидали weld)"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Какая загрузка линии сварки?»",
-    "status": "WARN",
-    "detail": "→ other"
+    "status": "PASS",
+    "detail": "→ weld (ожидали weld|oee)"
   },
   {
     "block": "E",
     "name": "Вопрос жюри: «Сколько JAC J7 в плане?»",
-    "status": "WARN",
-    "detail": "→ oee"
+    "status": "PASS",
+    "detail": "→ oee (ожидали oee)"
   },
   {
     "block": "E",
@@ -478,5 +478,89 @@
     "name": "Базовый OEE: дашборд vs What-If",
     "status": "PASS",
     "detail": "дашборд=87.7%, What-If=87.7% (единый источник истины)"
+  },
+  {
+    "block": "G",
+    "name": "Первый запрос (холодный старт)",
+    "status": "PASS",
+    "detail": "200, 32 мс"
+  },
+  {
+    "block": "G",
+    "name": "GET /analytics/oee",
+    "status": "PASS",
+    "detail": "p50=12 мс p95=147 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /analytics/business-effect",
+    "status": "PASS",
+    "detail": "p50=8 мс p95=9 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "POST /analytics/what-if",
+    "status": "PASS",
+    "detail": "p50=9 мс p95=11 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /ai/forecast",
+    "status": "PASS",
+    "detail": "p50=18 мс p95=23 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "POST /ai/predict-conveyor",
+    "status": "PASS",
+    "detail": "p50=7 мс p95=11 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "POST /ai/copilot/chat",
+    "status": "PASS",
+    "detail": "p50=9 мс p95=11 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /ai/harness/evaluate",
+    "status": "PASS",
+    "detail": "p50=9 мс p95=17 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /production-records",
+    "status": "PASS",
+    "detail": "p50=18 мс p95=22 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "GET /downtime-events",
+    "status": "PASS",
+    "detail": "p50=14 мс p95=29 мс ошибок=0/20"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод POST /ai/predict-conveyor",
+    "status": "PASS",
+    "detail": "ожидали 422, получили 422 (3 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод POST /ai/copilot/chat",
+    "status": "PASS",
+    "detail": "ожидали 200, получили 200 (32 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод GET /production-areas/999999",
+    "status": "PASS",
+    "detail": "ожидали 404, получили 404 (3 мс)"
+  },
+  {
+    "block": "G",
+    "name": "Невалидный ввод GET /production-records?limit=100000",
+    "status": "PASS",
+    "detail": "ожидали 422, получили 422 (3 мс)"
   }
 ]

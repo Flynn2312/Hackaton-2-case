@@ -13,6 +13,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/oee", response_model=PlantOeeResponse, summary="Расчет OEE завода и технологических участков")
+@router.get("/plant-oee", response_model=PlantOeeResponse, summary="Алиас расчета OEE завода")
 def get_plant_oee(shift_id: Optional[int] = None, db: DB = None):
     """
     Возвращает сквозной расчет OEE (Availability * Performance * Quality)

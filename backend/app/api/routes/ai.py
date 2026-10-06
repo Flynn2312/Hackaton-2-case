@@ -20,6 +20,7 @@ def get_ai_forecast():
 
 
 @router.post("/predict-conveyor", response_model=EquipmentPredictionResponse, summary="Предиктивная вибродиагностика Конвейера-03")
+@router.post("/predict/conveyor", response_model=EquipmentPredictionResponse, include_in_schema=False)
 def predict_conveyor(telemetry: ConveyorTelemetryRequest):
     """
     Анализирует СКЗ виброскорости, температуру редуктора и наработку Конвейера-03 сборки.
@@ -29,6 +30,7 @@ def predict_conveyor(telemetry: ConveyorTelemetryRequest):
 
 
 @router.post("/predict-paint", response_model=EquipmentPredictionResponse, summary="Прогнозирование брака ЛКП в Окрасочной камере-02")
+@router.post("/predict/paint", response_model=EquipmentPredictionResponse, include_in_schema=False)
 def predict_paint(telemetry: PaintTelemetryRequest):
     """
     Анализирует температуру сушки, вязкость эмали и влажность.
@@ -51,6 +53,8 @@ def chat_with_copilot(req: CopilotChatRequest):
 
 
 @router.get("/harness/evaluate", response_model=HarnessEvaluationReport, summary="AI Evaluation Harness (Бенчмарк и оценка качества модели)")
+@router.get("/harness/run", response_model=HarnessEvaluationReport, include_in_schema=False)
+@router.post("/harness/run", response_model=HarnessEvaluationReport, include_in_schema=False)
 def run_evaluation_harness():
     """
     Прогоняет тестовый харнесс из калиброванных промышленных сценариев.

@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     app_name: str = "Digital Twin Factory API"
     api_prefix: str = "/api"
 
-    supabase_url: str
-    supabase_secret_key: str
+    supabase_url: str = "https://placeholder.supabase.co"
+    supabase_secret_key: str = "placeholder-key"
 
     cors_origins: str = ""
 
