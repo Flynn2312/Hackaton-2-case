@@ -3,10 +3,12 @@ import { loadTwin } from './lib/model';
 import { S } from './lib/format';
 import FlowView from './views/FlowView';
 import WhatIfView from './views/WhatIfView';
+import AiRiskCenterView from './views/AiRiskCenterView';
 import RoiView from './views/RoiView';
 import IncidentsView from './views/IncidentsView';
 import CopilotView from './views/CopilotView';
 import AreaDrawer from './components/AreaDrawer';
+import EquipmentPassportModal from './components/EquipmentPassportModal';
 
 const REFRESH_MS = 30_000;
 
@@ -53,13 +55,15 @@ export default function App() {
   const [logArea, setLogArea] = useState(null);
   const [whatIf, setWhatIf] = useState(null);
   const [chatRequest, setChatRequest] = useState(null);
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
 
   const go = (v) => { setView(v); setSel(null); setLogArea(null); };
 
   const nav = [
-    ['flow', 'Поток', model?.flowBadge],
+    ['flow', 'Живой завод', model?.flowBadge],
     ['whatif', 'What-If'],
-    ['roi', 'ROI'],
+    ['airisk', 'AI Risk Center', { n: 2, st: 'r' }],
+    ['roi', 'Экономика & ROI'],
     ['log', 'Инциденты', model?.incBadge],
     ['chat', 'AI Copilot'],
   ];
@@ -127,8 +131,21 @@ export default function App() {
             ))}
           </div>
 
-          {view === 'flow' && <FlowView model={model} onOpen={setSel} />}
+          {view === 'flow' && (
+            <FlowView
+              model={model}
+              onOpen={setSel}
+              onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
+            />
+          )}
           {view === 'whatif' && <WhatIfView model={model} preset={whatIf} />}
+          {view === 'airisk' && (
+            <AiRiskCenterView
+              model={model}
+              onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
+              onOpenWhatIf={(p) => { setWhatIf(p); setView('whatif'); }}
+            />
+          )}
           {view === 'roi' && <RoiView model={model} />}
           {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} />}
           {view === 'chat' && <CopilotView model={model} request={chatRequest} />}
@@ -141,6 +158,21 @@ export default function App() {
               onWhatIf={() => { setWhatIf({ areaId: selArea.id, at: Date.now() }); setView('whatif'); setSel(null); }}
               onIncidents={() => { setView('log'); setLogArea(selArea.id); setSel(null); }}
               onAsk={() => { setChatRequest({ areaId: selArea.id, q: `Что происходит на участке «${selArea.name}» и что делать?`, at: Date.now() }); setView('chat'); setSel(null); }}
+              onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
+            />
+          )}
+
+          {selectedEquipment && (
+            <EquipmentPassportModal
+              equipment={selectedEquipment.equipment}
+              area={selectedEquipment.area}
+              model={model}
+              onClose={() => setSelectedEquipment(null)}
+              onWhatIf={(preset) => {
+                setWhatIf(preset);
+                setView('whatif');
+                setSelectedEquipment(null);
+              }}
             />
           )}
         </>

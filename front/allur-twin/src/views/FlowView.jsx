@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Blueprint, Legend, PageTitle, Segmented, StatusTag } from '../components/ui';
+import LivePlantFlow from '../components/LivePlantFlow';
 import { S, fmtDayLong, fmtInt } from '../lib/format';
 
 const VARIANTS = [['cards', 'Карточки'], ['matrix', 'Матрица'], ['plan', 'План цеха']];
@@ -11,15 +12,18 @@ const ctText = (a) => (a.ct ? `${Math.round(a.ct)} с` : '—');
 const upText = (a) => (a.hasRec ? `${Math.round(a.A * 100)}%` : '—');
 const oeeText = (a) => (a.hasRec ? `${Math.round(a.oee)}%` : '—');
 
-export default function FlowView({ model, onOpen, variant: initial = 'cards' }) {
+export default function FlowView({ model, onOpen, onOpenEquipment, variant: initial = 'cards' }) {
   const [variant, setVariant] = useState(initial);
   const { areas } = model;
 
   return (
     <main className="px-7 pt-6 pb-10 flex flex-col gap-7">
+      {/* Живой завод: Сквозной поток + 30-секундный интерактивный симулятор */}
+      <LivePlantFlow model={model} onOpenArea={onOpen} onOpenEquipment={onOpenEquipment} />
+
       <PageTitle
-        title="Карта потока ценности"
-        sub={`${areas.map((a) => a.name).join(' → ')} · данные на ${fmtDayLong(model.day)} · нажмите на участок для деталей`}
+        title="Детализация участков потока"
+        sub={`${areas.map((a) => a.name).join(' → ')} · данные на ${fmtDayLong(model.day)} · выберите вид отображения`}
       >
         <div className="flex items-center gap-5 flex-wrap">
           <Legend />
@@ -27,9 +31,9 @@ export default function FlowView({ model, onOpen, variant: initial = 'cards' }) 
         </div>
       </PageTitle>
 
-      {variant === 'cards' && <Cards areas={areas} onOpen={onOpen} />}
+      {variant === 'cards' && <Cards areas={areas} onOpen={onOpen} onOpenEquipment={onOpenEquipment} />}
       {variant === 'matrix' && <Matrix areas={areas} onOpen={onOpen} />}
-      {variant === 'plan' && <Plan areas={areas} onOpen={onOpen} />}
+      {variant === 'plan' && <Plan areas={areas} onOpen={onOpen} onOpenEquipment={onOpenEquipment} />}
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-7">
         <HourlyChart model={model} />
@@ -57,7 +61,7 @@ function Buffer({ area }) {
   );
 }
 
-function Cards({ areas, onOpen }) {
+function Cards({ areas, onOpen, onOpenEquipment }) {
   return (
     <div className="overflow-x-auto p-2 pb-3 -m-2 mb-0">
       <div className="flex items-stretch" style={{ minWidth: areas.length * 243 }}>
@@ -91,6 +95,22 @@ function Cards({ areas, onOpen }) {
                     <div className="text-sm font-medium">{v}</div>
                   </div>
                 ))}
+              </div>
+              <div className="px-3.5 py-1.5 border-t border-divider flex items-center justify-between text-[11px] text-neutral-600 bg-neutral-100/40">
+                <span>Оборудование ({a.units.length}):</span>
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  {a.units.slice(0, 4).map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => { if (onOpenEquipment) onOpenEquipment(u, a); }}
+                      title={`${u.name} (паспорт)`}
+                      className="w-3.5 h-3.5 hover:scale-125 transition-transform cursor-pointer"
+                      style={{ background: S[u.st].fill }}
+                    />
+                  ))}
+                  {a.units.length > 4 && <span className="text-[10px]">+{a.units.length - 4}</span>}
+                </div>
               </div>
               <div className="px-3.5 py-2.5 border-t border-divider text-xs leading-[1.4] mt-auto min-h-14 text-pretty" style={{ color: alertInk(a) }}>{a.alert.text}</div>
             </button>
@@ -160,7 +180,7 @@ function Row({ label, cells }) {
 }
 
 // «Змейка»: верхний ряд слева направо, нижний — справа налево. Число колонок — из числа участков.
-function Plan({ areas, onOpen }) {
+function Plan({ areas, onOpen, onOpenEquipment }) {
   const cols = Math.max(1, Math.ceil(areas.length / 2));
   const pos = areas.map((_, i) => (i < cols ? [i * 2 + 1, 1] : [(cols - 1 - (i - cols)) * 2 + 1, 3]));
   const template = Array.from({ length: cols }, () => 'minmax(230px,1fr)').join(' 56px ');
@@ -191,10 +211,15 @@ function Plan({ areas, onOpen }) {
               </div>
               <div className="flex flex-wrap gap-1">
                 {a.units.map((u) => (
-                  <span
+                  <button
                     key={u.id}
-                    title={`${u.name} — ${u.label}`}
-                    className="w-[22px] h-[22px]"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenEquipment) onOpenEquipment(u, a);
+                    }}
+                    title={`${u.name} — ${u.label} (нажмите для паспорта)`}
+                    className="w-[22px] h-[22px] cursor-pointer hover:scale-110 transition-transform"
                     style={u.st === 'g'
                       ? { background: 'oklch(0.68 0.14 150 / .35)', border: `1px solid ${S.g.fill}` }
                       : { background: S[u.st].fill, border: `1px solid ${S[u.st].fill}` }}

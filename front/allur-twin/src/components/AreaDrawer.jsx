@@ -4,7 +4,7 @@ import { S, eqShort, fmt1 } from '../lib/format';
 
 const CRIT = { high: 'высокая', medium: 'средняя', low: 'низкая' };
 
-export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, onAsk }) {
+export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, onAsk, onOpenEquipment }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -57,21 +57,29 @@ export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, on
           )}
 
           <div className="flex flex-col gap-2">
-            <h6 className="text-neutral-700">Оборудование · {a.equipment.length} ед.</h6>
+            <div className="flex items-center justify-between">
+              <h6 className="text-neutral-700">Оборудование · {a.equipment.length} ед.</h6>
+              <span className="text-[10px] text-neutral-600">нажмите на станок для паспорта</span>
+            </div>
             {a.equipment.map((e) => {
-              const u = a.units.find((x) => x.id === e.id);
+              const u = a.units.find((x) => x.id === e.id) || e;
               return (
-                <div key={e.id} className="grid grid-cols-[10px_minmax(0,1fr)_auto] gap-2.5 items-center text-[13px] border-t border-divider pt-2">
-                  <span className="w-2.5 h-2.5" style={{ background: S[u.st].fill }} />
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => onOpenEquipment && onOpenEquipment(e, a)}
+                  className="grid grid-cols-[10px_minmax(0,1fr)_auto] gap-2.5 items-center text-[13px] border-t border-divider pt-2 text-left hover:bg-neutral-100 p-1 transition-colors"
+                >
+                  <span className="w-2.5 h-2.5" style={{ background: S[u.st || 'g'].fill }} />
                   <span className="min-w-0">
-                    <span className="block truncate">{e.name}</span>
+                    <span className="block truncate font-medium">{e.name}</span>
                     <span className="text-[11px] text-neutral-700">{e.code} · критичность {CRIT[e.criticality] ?? e.criticality}</span>
                   </span>
-                  <span className="text-right">
-                    <span className="block text-xs" style={{ color: u.st === 'g' ? 'var(--color-neutral-700)' : S[u.st].ink }}>{u.label}</span>
-                    <span className="text-[11px] text-neutral-700">{e.dayDowntime ? `простой ${e.dayDowntime} мин` : '—'}</span>
+                  <span className="text-right flex flex-col items-end">
+                    <span className="block text-xs" style={{ color: u.st === 'g' ? 'var(--color-neutral-700)' : S[u.st || 'g'].ink }}>{u.label || 'в работе'}</span>
+                    <span className="text-[11px] text-accent-700 font-medium">Паспорт →</span>
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -47,6 +47,14 @@
     0%, 100% { opacity: 1; }
     50% { opacity: .3; }
   }
+
+  --animate-convey: convey-move 2.2s linear infinite;
+  @keyframes convey-move {
+    0% { transform: translateX(-100%); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateX(250%); opacity: 0; }
+  }
 }
 
 @layer base {
