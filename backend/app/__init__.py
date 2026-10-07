@@ -54,4 +54,26 @@ def create_app() -> FastAPI:
     ):
         app.include_router(r)
 
+    # Маршруты цифрового двойника и AI-движка для кейса Allur
+    from app.api.routes import ai as routes_ai
+    from app.api.routes import analytics as routes_analytics
+    from app.api.routes import factory as routes_factory
+    from app.api.routes import production as routes_production
+    from app.api.routes import events as routes_events
+
+    app.include_router(routes_ai.router)
+    app.include_router(routes_analytics.router)
+    app.include_router(routes_factory.router)
+    app.include_router(routes_production.router)
+    app.include_router(routes_events.router)
+
+    # Дополнительные префиксы /api для совместимости
+    app.include_router(routes_ai.router, prefix="/api")
+    app.include_router(routes_analytics.router, prefix="/api")
+
+    @app.get("/health", tags=["health"])
+    def root_health():
+        return {"status": "ok"}
+
     return app
+
