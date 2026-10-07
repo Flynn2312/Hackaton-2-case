@@ -1,16 +1,25 @@
-# React + Vite
+# Allur Twin — фронтенд цифрового двойника
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite + Tailwind v4. Дизайн — `design_handoff_allur_twin/`.
 
-Currently, two official plugins are available:
+## Запуск
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Адрес бэкенда — в `.env`: `VITE_API_URL=https://адрес-бэкенда`. Для локального API без правки `.env`
+создайте `.env.development.local` с `VITE_API_URL=http://127.0.0.1:8000` (в CORS_ORIGINS бэкенда должен быть `http://localhost:5173`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Откуда данные
 
-## Expanding the Oxlint configuration
+Всё считается в `src/lib/model.js` из эндпоинтов бэкенда (`src/lib/api.js`), данные обновляются раз в 30 с:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- **Порядок участков** в карте потока — `production_areas.sequence` (`GET /api/production-areas`). Добавили/переставили участок в БД — карта перестроится сама (карточки, матрица и «змейка» плана цеха).
+- **«Сейчас»** — конец последней смены в БД; KPI — за сутки этой смены.
+- OEE участка = доступность × производительность × качество по `production-records` и `quality-records`; OEE линии — `GET /api/analytics/oee`.
+- Статус участка — худшее из: OEE и брак относительно норм, аварии оборудования (`/equipment`), открытые инциденты, простой критичного оборудования > 60 мин.
+- Буфер между участками — расчётный НЗП: задел 10 + выход участка − выход следующего за сутки.
+- Предиктивные алерты — тренды за 28 дней: рост внеплановых простоев оборудования, рост брака, активные простои, узкое место.
+- What-If, ROI и Copilot считаются на клиенте от этих данных (AI-эндпоинты бэкенда пока заглушки). Экономические допущения — `ECON` в `model.js`.
