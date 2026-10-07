@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-10-06T23:31:32.411415",
+  "summary": {
+    "total_plan": 720,
+    "total_fact": 691,
+    "plan_fulfillment_pct": 95.97,
+    "total_downtime_minutes": 150,
+    "oee_actual_pct": 81.2,
+    "oee_target_pct": 85.0,
+    "critical_bottleneck": "Камера окраски-02 (брак 5.2%) и Конвейер-03 (простой 55 мин)",
+    "annual_effect_kzt": 1199100000,
+    "annual_effect_str": "1.2 миллиарда тенге",
+    "payback_months": 2.8
+  },
+  "downtime_events": [
+    {
+      "date": "01.10.2026",
+      "area": "Сварка",
+      "equipment": "ABB-01",
+      "reason": "Ошибка датчика",
+      "duration_min": 25,
+      "critical": false
+    },
+    {
+      "date": "01.10.2026",
+      "area": "Окраска",
+      "equipment": "Камера-02",
+      "reason": "Замена фильтра",
+      "duration_min": 40,
+      "critical": true
+    },
+    {
+      "date": "02.10.2026",
+      "area": "Сборка",
+      "equipment": "Конвейер-03",
+      "reason": "Обрыв цепи",
+      "duration_min": 55,
+      "critical": true
+    },
+    {
+      "date": "02.10.2026",
+      "area": "Сварка",
+      "equipment": "ABB-04",
+      "reason": "Плановое ТО",
+      "duration_min": 30,
+      "critical": false
+    }
+  ],
+  "quality_metrics": [
+    {
+      "date": "01.10.2026",
+      "area": "Сварка",
+      "good": 118,
+      "scrap": 1,
+      "rework": 2,
+      "scrap_pct": 0.8
+    },
+    {
+      "date": "01.10.2026",
+      "area": "Окраска",
+      "good": 115,
+      "scrap": 4,
+      "rework": 6,
+      "scrap_pct": 3.4
+    },
+    {
+      "date": "01.10.2026",
+      "area": "Сборка",
+      "good": 121,
+      "scrap": 1,
+      "rework": 1,
+      "scrap_pct": 0.8
+    },
+    {
+      "date": "02.10.2026",
+      "area": "Сварка",
+      "good": 111,
+      "scrap": 1,
+      "rework": 2,
+      "scrap_pct": 0.9
+    },
+    {
+      "date": "02.10.2026",
+      "area": "Окраска",
+      "good": 114,
+      "scrap": 6,
+      "rework": 8,
+      "scrap_pct": 5.2
+    },
+    {
+      "date": "02.10.2026",
+      "area": "Сборка",
+      "good": 112,
+      "scrap": 2,
+      "rework": 2,
+      "scrap_pct": 1.7
+    }
+  ],
+  "production_flow": [
+    {
+      "date": "01.10.2026",
+      "line": "Сварка-1",
+      "plan": 120,
+      "fact": 118,
+      "runtime_h": 7.8,
+      "load_pct": 98.0
+    },
+    {
+      "date": "01.10.2026",
+      "line": "Окраска-1",
+      "plan": 120,
+      "fact": 115,
+      "runtime_h": 7.5,
+      "load_pct": 94.0
+    },
+    {
+      "date": "01.10.2026",
+      "line": "Сборка-1",
+      "plan": 120,
+      "fact": 121,
+      "runtime_h": 8.0,
+      "load_pct": 100.0
+    },
+    {
+      "date": "02.10.2026",
+      "line": "Сварка-1",
+      "plan": 120,
+      "fact": 111,
+      "runtime_h": 7.2,
+      "load_pct": 91.0
+    },
+    {
+      "date": "02.10.2026",
+      "line": "Окраска-1",
+      "plan": 120,
+      "fact": 114,
+      "runtime_h": 7.6,
+      "load_pct": 95.0
+    },
+    {
+      "date": "02.10.2026",
+      "line": "Сборка-1",
+      "plan": 120,
+      "fact": 112,
+      "runtime_h": 7.1,
+      "load_pct": 93.0
+    }
+  ]
+}

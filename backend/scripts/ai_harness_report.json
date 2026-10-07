@@ -1,0 +1,148 @@
+{
+  "test_suite_name": "Allur Predictive Maintenance & Quality Benchmark Suite (v1.0)",
+  "timestamp": "2026-10-06T23:56:37.181064",
+  "total_cases": 8,
+  "passed_cases": 8,
+  "failed_cases": 0,
+  "accuracy_percent": 100.0,
+  "precision_score": 1.0,
+  "recall_score": 1.0,
+  "f1_score": 1.0,
+  "mean_latency_ms": 0.02,
+  "benchmark_status": "EXCELLENT",
+  "cases": [
+    {
+      "case_id": "TC-01",
+      "name": "Конвейер: штатный режим ISO",
+      "domain": "conveyor_vibration",
+      "input_features": {
+        "vibration_rms": 1.8,
+        "temp_celsius": 52.0,
+        "operating_hours": 2400
+      },
+      "expected_status": "NORMAL",
+      "predicted_status": "NORMAL",
+      "is_passed": true,
+      "latency_ms": 0.06,
+      "confidence_score": 0.22,
+      "diagnostic_message": "Параметры в пределах нормы ГОСТ/ISO. Вибрация 1.8 мм/с...."
+    },
+    {
+      "case_id": "TC-02",
+      "name": "Конвейер: ранняя стадия износа роликов",
+      "domain": "conveyor_vibration",
+      "input_features": {
+        "vibration_rms": 3.8,
+        "temp_celsius": 58.0,
+        "operating_hours": 5800
+      },
+      "expected_status": "WARNING",
+      "predicted_status": "WARNING",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.49,
+      "diagnostic_message": "Нарастание вибронагрузки (3.8 мм/с) и нагрев редуктора (58.0°C). Начальная стадия износа р..."
+    },
+    {
+      "case_id": "TC-03",
+      "name": "Конвейер: предаварийная вибрация ISO 10816",
+      "domain": "conveyor_vibration",
+      "input_features": {
+        "vibration_rms": 4.9,
+        "temp_celsius": 63.0,
+        "operating_hours": 7200
+      },
+      "expected_status": "WARNING",
+      "predicted_status": "WARNING",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.68,
+      "diagnostic_message": "Нарастание вибронагрузки (4.9 мм/с) и нагрев редуктора (63.0°C). Начальная стадия износа р..."
+    },
+    {
+      "case_id": "TC-04",
+      "name": "Конвейер: критический предотказ (инцидент 02.10)",
+      "domain": "conveyor_vibration",
+      "input_features": {
+        "vibration_rms": 6.8,
+        "temp_celsius": 68.5,
+        "operating_hours": 8905
+      },
+      "expected_status": "CRITICAL",
+      "predicted_status": "CRITICAL",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.99,
+      "diagnostic_message": "Усталостное растяжение тяговой цепи при наработке 8,905 ч. Вибрация 6.8 мм/с превышает пор..."
+    },
+    {
+      "case_id": "TC-05",
+      "name": "Окраска: идеальный микроклимат камеры",
+      "domain": "paint_quality",
+      "input_features": {
+        "drying_temp_celsius": 140.2,
+        "enamel_viscosity_sec": 21.0,
+        "relative_humidity_pct": 65.0,
+        "filter_pressure_kpa": 11.0
+      },
+      "expected_status": "NORMAL",
+      "predicted_status": "NORMAL",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.09,
+      "diagnostic_message": "Параметры микроклимата окрасочной камеры стабильны...."
+    },
+    {
+      "case_id": "TC-06",
+      "name": "Окраска: засорение воздушных фильтров",
+      "domain": "paint_quality",
+      "input_features": {
+        "drying_temp_celsius": 142.5,
+        "enamel_viscosity_sec": 22.5,
+        "relative_humidity_pct": 69.0,
+        "filter_pressure_kpa": 19.5
+      },
+      "expected_status": "WARNING",
+      "predicted_status": "WARNING",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.33,
+      "diagnostic_message": "Незначительный температурный дрейф (142.5°C) и засорение фильтров (19.5 кПа)...."
+    },
+    {
+      "case_id": "TC-07",
+      "name": "Окраска: критический перегрев печи (инцидент 02.10)",
+      "domain": "paint_quality",
+      "input_features": {
+        "drying_temp_celsius": 147.5,
+        "enamel_viscosity_sec": 26.0,
+        "relative_humidity_pct": 74.0,
+        "filter_pressure_kpa": 18.5
+      },
+      "expected_status": "CRITICAL",
+      "predicted_status": "CRITICAL",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.7,
+      "diagnostic_message": "Термический перегрев сушильной печи (147.5°C при норме 140.0±2.0°C) в сочетании с повышенн..."
+    },
+    {
+      "case_id": "TC-08",
+      "name": "Окраска: экстремальный термический сбой сушки",
+      "domain": "paint_quality",
+      "input_features": {
+        "drying_temp_celsius": 152.0,
+        "enamel_viscosity_sec": 24.0,
+        "relative_humidity_pct": 72.0,
+        "filter_pressure_kpa": 14.0
+      },
+      "expected_status": "CRITICAL",
+      "predicted_status": "CRITICAL",
+      "is_passed": true,
+      "latency_ms": 0.01,
+      "confidence_score": 0.78,
+      "diagnostic_message": "Термический перегрев сушильной печи (152.0°C при норме 140.0±2.0°C) в сочетании с повышенн..."
+    }
+  ],
+  "summary_verdict": "Тестовый харнесс успешно пройден: 8/8 тест-кейсов (Точность: 100.0%). F1-Score: 1.0, средняя задержка инференса: 0.02 мс. Модель готова к промышленной валидации Allur."
+}
