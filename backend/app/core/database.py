@@ -1,8 +1,10 @@
 import logging
+from functools import lru_cache
 from typing import AsyncGenerator
 
 import asyncpg
 from asyncpg.pool import Pool
+from supabase import Client, create_client
 from app.core.config import get_settings
 
 MIN_CON_SIZE = 2
@@ -21,6 +23,9 @@ class DatabaseManager:
         """Создает пул соединений при старте приложения"""
         try:
             settings = get_settings()
+            if not settings.database_url:
+                logger.warning("DATABASE_URL не задан, пул соединений с asyncpg не создан")
+                return
             self.pool = await asyncpg.create_pool(
                 dsn=settings.database_url,
                 min_size=MIN_CON_SIZE,
@@ -62,3 +67,9 @@ async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
             yield connection
         finally:
             logger.debug("Соединение с БД возвращено в пул")
+
+
+@lru_cache
+def get_supabase() -> Client:
+    settings = get_settings()
+    return create_client(settings.supabase_url, settings.supabase_secret_key)

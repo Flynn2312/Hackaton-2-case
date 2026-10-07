@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     supabase_url: str = "https://placeholder.supabase.co"
     supabase_secret_key: str = "placeholder-key"
 
-    database_url: str
+    database_url: str = ""
 
     cors_origins: str = ""
 
