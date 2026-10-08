@@ -13,6 +13,9 @@ export const fmtInt = (v) => Math.round(v).toLocaleString('ru-RU');
 export const fmt1 = (v) => (Math.round(v * 10) / 10).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 export const pct = (v) => `${fmt1(v)}%`;
 export const sgn = (v, f = fmtInt) => (v > 0 ? '+' : v < 0 ? '−' : '') + f(Math.abs(v));
+// Точность прогноза: зелёный — сбылся, жёлтый — заметное расхождение, красный — промах
+export const accuracySt = (a) => (a >= 85 ? 'g' : a >= 70 ? 'y' : 'r');
+
 // Деньги: 4,7 млн ₸ / 850 тыс. ₸ / 0 ₸
 export const fmtKzt = (v) => {
   const a = Math.abs(v);
@@ -43,7 +46,6 @@ export const addDays = (day, n) => {
 };
 export const isWeekday = (day) => { const w = new Date(`${day}T00:00:00Z`).getUTCDay(); return w !== 0 && w !== 6; };
 
-export const fmtMinutes = (m) => (m >= 120 ? `${fmt1(m / 60)} ч` : `${fmtInt(m)} мин`);
 export const fmtHours = (h) => (h < 1 ? `~${Math.max(1, Math.round(h * 60))} мин` : h < 48 ? `~${Math.round(h)} ч` : `~${Math.round(h / 24)} дн`);
 
 // Короткое имя оборудования: «Сборочный конвейер Конвейер-03» -> «Конвейер-03»

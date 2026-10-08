@@ -16,10 +16,6 @@ from app.simulator.engine import ACTIONS, PlantSimulator
 HORIZON = 180  # мин завода
 RUNS = 6
 
-# Экономика — те же допущения, что на дашборде (front/src/lib/model.js, ECON)
-CAR_MARGIN_KZT = 350_000
-DEFECT_KZT = 120_000
-
 # Строки таблицы вариантов. better — какое направление лучше (для подсветки на фронте)
 METRICS = [
     {"key": "output", "label": "Выпуск линии за 3 ч", "unit": "авто", "better": "higher", "digits": 0},
@@ -50,6 +46,9 @@ class MemoryStore:
     async def update(self, table: str, row_id: int, fields: dict) -> dict:
         return {"id": row_id, **fields}
 
+    async def merge_payload(self, table: str, row_id: int, extra: dict) -> dict:
+        return {"id": row_id, "payload": extra}
+
 
 class NullHub:
     def publish(self, message: dict) -> None:
@@ -78,7 +77,8 @@ async def _run(snapshot: dict, refs: dict, inc_id: int, action: str, seed: int) 
     return dict(sim.stats)
 
 
-def _metrics(stats: dict, area: str, action: str) -> dict:
+def outcome_metrics(stats: dict, area: str, action: str) -> dict:
+    """Показатели окна по накопленным счётчикам движка; ими же считается факт при проверке прогноза."""
     minutes = stats.get(f"minutes:{area}", 0) or 1
     made = stats.get(f"made:{area}", 0)
     scrap = stats.get(f"scrap:{area}", 0)
@@ -97,12 +97,12 @@ async def _forecast(snapshot: dict, refs: dict, inc_id: int, area: str, actions:
     seeds = [random.randrange(10 ** 9) for _ in range(RUNS)]
     result = {}
     for action in actions:
-        runs = [_metrics(await _run(snapshot, refs, inc_id, action, seed), area, action) for seed in seeds]
+        runs = [outcome_metrics(await _run(snapshot, refs, inc_id, action, seed), area, action) for seed in seeds]
         result[action] = {k: sum(r[k] for r in runs) / len(runs) for k in runs[0]}
     base = result["none"]
     for action, m in result.items():
-        m["effect"] = ((m["output"] - base["output"]) * CAR_MARGIN_KZT
-                       + (base["scrap"] - m["scrap"]) * DEFECT_KZT) / 1000 - m["cost"]
+        m["effect"] = ((m["output"] - base["output"]) * P.CAR_MARGIN_KZT
+                       + (base["scrap"] - m["scrap"]) * P.DEFECT_KZT) / 1000 - m["cost"]
     return result
 
 

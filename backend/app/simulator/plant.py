@@ -159,6 +159,12 @@ SAFETY_INCIDENTS = [
 
 CRIT_WEIGHT = {"high": 1.0, "medium": 0.5, "low": 0.0}
 
+# Экономика — допущения команды (в кейсе их нет), уточняются у Allur на пилоте. Единственный источник на бэкенде;
+# дашборд использует те же значения (front/allur-twin/src/lib/model.js, ECON).
+DOWNTIME_MIN_KZT = 85_000   # минута простоя линии: ФОТ + накладные + упущенная маржа ≈ 15 авто/ч × маржа / 60
+DEFECT_KZT = 120_000        # исправление одного дефектного кузова
+CAR_MARGIN_KZT = 350_000    # маржинальный доход с автомобиля
+
 
 def poisson(rng: random.Random, lam: float) -> int:
     threshold, k, p = math.exp(-lam), 0, 1.0

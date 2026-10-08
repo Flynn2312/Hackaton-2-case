@@ -75,6 +75,13 @@ class SimStore:
             f"UPDATE public.{table} SET {sets} WHERE id = $1 RETURNING *", row_id, *map(_encode, fields.values()))
         return _decode(row)
 
+    async def merge_payload(self, table: str, row_id: int, extra: dict) -> dict | None:
+        """Дописывает ключи в jsonb-поле payload, не перезаписывая остальное."""
+        row = await self.pool.fetchrow(
+            f"UPDATE public.{table} SET payload = coalesce(payload, '{{}}'::jsonb) || $2::jsonb WHERE id = $1 RETURNING *",
+            row_id, _encode(extra))
+        return _decode(row)
+
     # ---------------------------------------------------------------- аренда и состояние
 
     async def acquire_lease(self, owner: str) -> dict | None:

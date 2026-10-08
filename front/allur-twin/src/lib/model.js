@@ -3,7 +3,7 @@
 // Порядок участков в потоке берётся из production_areas.sequence — ничего не захардкожено.
 import { api } from './api';
 import {
-  S, worst, localDate, localHour, fmtTime, fmtDateTime, dayStartIso, addDays, isWeekday,
+  worst, localDate, localHour, fmtTime, fmtDateTime, dayStartIso, addDays, isWeekday,
   eqShort, fmt1, fmtInt, fmtKzt, pct, fmtHours,
 } from './format';
 
@@ -17,21 +17,17 @@ export const NORMS = {
   bufferMin: 8,
 };
 
-// Допущения для экономики (совпадают с backend/app/services/case_data.py ASSUMPTIONS)
+// Допущения для экономики — те же, что на бэкенде (backend/app/simulator/plant.py)
 export const ECON = {
   downtimeMinKzt: 85_000,   // стоимость минуты простоя линии
   defectKzt: 120_000,       // исправление одного дефектного кузова
   carMarginKzt: 350_000,    // маржинальный доход с автомобиля (допущение команды)
-  workDaysYear: 250,
-  downtimeCut: 0.30,        // доля внеплановых простоев, устраняемых предиктивным ТО
-  defectCut: 0.50,          // доля брака, устраняемая контролем параметров
-  shortfallCut: 0.25,       // доля недовыпуска, возвращаемая балансировкой потока
 };
 
 // Доля мощности участка, которую снимает остановка узла (как plant.CRIT_WEIGHT в симуляторе):
 // критичный узел останавливает участок, средний — наполовину, некритичный на выпуск не влияет.
 // Нехватка комплектующих останавливает участок целиком.
-const STOP_WEIGHT = { high: 1, medium: 0.5, low: 0 };
+export const STOP_WEIGHT = { high: 1, medium: 0.5, low: 0 };
 const stopWeight = (e) => (e.type === 'material_shortage' ? 1 : STOP_WEIGHT[e.eq?.criticality] ?? 0);
 
 const HISTORY_DAYS = 28;
@@ -144,6 +140,11 @@ export function buildModel(raw, simNow = null) {
   // ── Решения по инцидентам: ждут выбора оператора (generating — ИИ ещё готовит варианты)
   const incById = Object.fromEntries(incs.map((i) => [i.id, i]));
   const decisions = (raw.decisions ?? []).filter((d) => incById[d.id]).map((d) => ({ ...d, incident: incById[d.id] }));
+  // Проверенные прогнозы: насколько факт через 3 ч совпал с прогнозом выбранного варианта
+  const checked = decisions.filter((d) => d.payload?.check);
+  const forecastAccuracy = checked.length
+    ? { value: Math.round(sum(checked, (d) => d.payload.check.accuracy) / checked.length), n: checked.length }
+    : null;
   const pendingDecisions = decisions
     .filter((d) => d.status === 'generating' || d.status === 'ready')
     .sort((a, b) => ts(a.created_at) - ts(b.created_at));
@@ -388,22 +389,6 @@ export function buildModel(raw, simNow = null) {
   }
   alerts.sort((a, b) => (a.st === b.st ? 0 : a.st === 'r' ? -1 : b.st === 'r' ? 1 : 0));
 
-  // ── Экономика (годовой эффект из данных окна HISTORY_DAYS)
-  const winDays = Math.max(1, recDays.length);
-  const unplannedMin = sum(dt.filter((e) => e.unplanned && e.day >= recDays[0]), (e) => e.minutes);
-  const defects = sum(qual, (q) => q.scrap_quantity + q.rework_quantity);
-  const shortfall = Math.max(0, sum(recDays, (d) => (planByDay[d] ?? 0) - (outByDay[d] ?? 0)));
-  const perYear = ECON.workDaysYear / winDays;
-  const economy = {
-    windowDays: winDays,
-    rows: [
-      { key: 'downtime', l: 'Сокращение внеплановых простоев', phys: `${fmtInt((unplannedMin * perYear) / 60)} ч/год · −${ECON.downtimeCut * 100}%`, v: (unplannedMin * perYear * ECON.downtimeCut * ECON.downtimeMinKzt) / 1e6 },
-      { key: 'defects', l: 'Снижение брака и доработок', phys: `${fmtInt(defects * perYear)} ед./год · −${ECON.defectCut * 100}%`, v: (defects * perYear * ECON.defectCut * ECON.defectKzt) / 1e6 },
-      { key: 'shortfall', l: 'Возврат недовыпуска', phys: `${fmtInt(shortfall * perYear)} авто/год · ${ECON.shortfallCut * 100}% возврат`, v: (shortfall * perYear * ECON.shortfallCut * ECON.carMarginKzt) / 1e6 },
-    ],
-  };
-  economy.total = sum(economy.rows, (r) => r.v);
-
   // ── Финансы за сутки: прямые потери = внеплановый простой + брак и доработка.
   // Недовыпуск отдельно не считаем: упущенная маржа уже входит в стоимость минуты простоя, иначе учли бы её дважды.
   const lossKzt = (e) => e.minutes * stopWeight(e) * ECON.downtimeMinKzt;
@@ -427,7 +412,7 @@ export function buildModel(raw, simNow = null) {
     total: finDowntime + finDefect,
     // Идущие остановки для счётчика «Линия теряет сейчас»: ставка ₸/мин с учётом веса узла
     stops: dt.filter((e) => e.active && e.unplanned && stopWeight(e) > 0).map((e) => ({
-      id: e.id, areaId: e.areaId, area: areaById[e.areaId]?.name, name: eqShort(e.eq.name), reason: e.reason,
+      id: e.id, equipmentId: e.equipment_id, areaId: e.areaId, area: areaById[e.areaId]?.name, name: eqShort(e.eq.name), reason: e.reason,
       startedAt: ts(e.started_at), rate: stopWeight(e) * ECON.downtimeMinKzt,
     })),
     kpis: [
@@ -454,15 +439,10 @@ export function buildModel(raw, simNow = null) {
     taktMin: NORMS.shiftMinutes / Math.max(1, dayPlan / Math.max(1, dayShifts.length)),
   };
 
-  // ── Наряд-заказы: открытые инциденты по оборудованию
-  const orders = incs.filter((i) => i.open && i.equipment).slice(0, 4).map((i) => ({
-    id: `НЗ-${i.id} · ${i.area?.name ?? ''}`, st: i.state, t: i.title, ink: S[i.status === 'open' ? 'r' : 'y'].ink,
-  }));
-
   const notG = areas.filter((a) => a.st !== 'g');
   return {
     factory, day, anchor, lastShift, dayShifts, areas, finalArea, hours, hourPlan, dayPlan,
-    kpis, alerts: alerts.slice(0, 4), incidents: incs, decisions, pendingDecisions, orders, economy, finance, whatIfBase, eqTrends, risingEq,
+    kpis, alerts: alerts.slice(0, 4), incidents: incs, decisions, pendingDecisions, forecastAccuracy, finance, whatIfBase, eqTrends, risingEq,
     lineOee, critDowntime, totalDowntime, worstDefect, bottleneck, monthForecast, monthPlan, avgDaily,
     flowBadge: { n: notG.length, st: worst(...notG.map((a) => a.st)) },
     incBadge: { n: incs.filter((i) => i.open).length, st: incs.some((i) => i.open && i.st === 'r') ? 'r' : 'y' },

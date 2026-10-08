@@ -219,10 +219,11 @@ export default function LandingView() {
   const { live, areas, error } = useLivePlant();
   const simMs = useSimClock(live?.simulator, live?.at);
 
+  // Ставки, по которым двойник переводит события в деньги (вкладка «Финансы», решения, What-If)
   const levers = [
-    { v: `−${ECON.downtimeCut * 100}%`, l: 'внеплановых простоев', n: `предиктивное ТО · ${fmtInt(ECON.downtimeMinKzt)} ₸ за минуту простоя` },
-    { v: `−${ECON.defectCut * 100}%`, l: 'брака и доработок', n: `контроль параметров · ${fmtInt(ECON.defectKzt)} ₸ за кузов` },
-    { v: `+${ECON.shortfallCut * 100}%`, l: 'недовыпуска возвращается', n: `балансировка потока · ${fmtInt(ECON.carMarginKzt)} ₸ маржи с авто` },
+    { v: `${fmtInt(ECON.downtimeMinKzt)} ₸`, l: 'минута простоя линии', n: 'включает упущенную маржу, поэтому недовыпуск отдельно не прибавляется' },
+    { v: `${fmtInt(ECON.defectKzt)} ₸`, l: 'исправление кузова', n: 'брак и доработка' },
+    { v: `${fmtInt(ECON.carMarginKzt)} ₸`, l: 'маржа с автомобиля', n: 'по ней считается эффект решений ИИ и сценариев What-If' },
   ];
 
   return (
@@ -328,13 +329,13 @@ export default function LandingView() {
       <Section
         id="effect"
         kicker="Эффект для бизнеса"
-        title="Три рычага экономии"
-        sub="Допущения расчёта. Годовой эффект считается по фактическим простоям, браку и недовыпуску двойника."
+        title="Каждое событие — в тенге"
+        sub="Вкладка «Финансы» показывает, сколько линия теряет прямо сейчас и на каких участках уходят деньги. Ставки — допущения команды, уточняются на пилоте."
       >
         <div className="grid md:grid-cols-3 gap-3">
           {levers.map((l) => (
             <div key={l.l} className="bg-bg rounded-2xl p-6 flex flex-col gap-1 shadow-[var(--shadow-card)]">
-              <span className="num text-[44px] leading-none" style={{ color: S.g.ink }}>{l.v}</span>
+              <span className="num text-[40px] leading-none">{l.v}</span>
               <span className="font-medium">{l.l}</span>
               <span className="text-xs text-neutral-700">{l.n}</span>
             </div>

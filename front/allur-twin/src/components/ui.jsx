@@ -1,5 +1,3 @@
-import { S } from '../lib/format';
-
 export const Corners = () => (
   <>
     <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
@@ -34,14 +32,6 @@ export function Segmented({ options, value, onChange }) {
   );
 }
 
-export function StatusTag({ st, children }) {
-  return (
-    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: S[st].tint, color: S[st].ink }}>
-      {children ?? S[st].l}
-    </span>
-  );
-}
-
 export function PageTitle({ title, sub, children }) {
   return (
     <div className="flex items-end justify-between gap-5 flex-wrap">
@@ -53,16 +43,6 @@ export function PageTitle({ title, sub, children }) {
     </div>
   );
 }
-
-export const Legend = () => (
-  <div className="flex gap-3.5 text-xs text-neutral-700">
-    {['g', 'y', 'r'].map((k) => (
-      <span key={k} className="flex items-center gap-1.5">
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: S[k].fill }} />{S[k].l}
-      </span>
-    ))}
-  </div>
-);
 
 export function Slider({ label, value, display, min, max, step = 1, onChange, hint, marks }) {
   return (

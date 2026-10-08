@@ -63,6 +63,9 @@ DECISION_TYPES = {"equipment_failure", "material_shortage", "quality_deviation",
 DECISION_WINDOW = 30   # мин завода на выбор после появления вариантов, затем применяется «ничего не менять»
 DECISION_GIVE_UP = 90  # мин завода: варианты так и не появились — инцидент идёт своим ходом
 CHOICES = ("none", "A", "B")
+# Проверка прогноза: через HORIZON минут работы линии после инцидента (forecast.py) факт сравнивается
+# с прогнозом выбранного варианта. Окно — от момента инцидента, как у прогноза: задержка решения входит в факт.
+CHECK_METRICS = {"output": 0, "area_downtime": 0, "scrap_pct": 1}  # метрика -> знаков после запятой
 
 # Действия, которые движок умеет применить. Варианты A и Б — два действия из подходящих к инциденту.
 # cost — прямые затраты на меру, ₸ (допущение команды, как и прочие экономические параметры)
@@ -161,6 +164,7 @@ class PlantSimulator:
         self.st.setdefault("decisions", {})
         self.st.setdefault("mods", {})
         self.st.setdefault("ai_decisions", True)
+        self.st.setdefault("checks", {})
 
     async def _fresh_start(self, real_now: datetime) -> None:
         latest = await self.store.latest_shift_end(self.refs["factory_id"])
@@ -177,7 +181,7 @@ class PlantSimulator:
             "wear": {c: {"w": round(rng.uniform(0, 0.5), 4), "rate": WEAR_RATE * rng.uniform(0.5, 1.5)}
                      for c in self.codes},
             "status": {c: e["status"] for c, e in self.refs["equipment"].items()},
-            "downtime": {}, "pending": [], "incidents": {}, "boost": {}, "decisions": {}, "mods": {},
+            "downtime": {}, "pending": [], "incidents": {}, "boost": {}, "decisions": {}, "mods": {}, "checks": {},
         }
         await self._adopt_orphans(start)
         # Оборудование не в работе без открытого простоя (статус из сида) — вернётся в строй в первые минуты
@@ -208,6 +212,14 @@ class PlantSimulator:
     # ---------------------------------------------------------------- шаг симуляции
 
     async def step(self) -> None:
+        # Проверки прогнозов ведёт только живой завод: в копиях для прогноза и What-If решения выключены
+        checks = self.st.get("checks") if self.decisions_enabled else None
+        before = dict(self.stats) if checks else None
+        await self._step()
+        if checks:
+            await self._track_checks(before)
+
+    async def _step(self) -> None:
         t = self.now
         shift = self.st["shift"]
         if shift is None or t >= parse(shift["end"]):
@@ -594,6 +606,7 @@ class PlantSimulator:
             self.st["decisions"][str(row["id"])] = {"status": "generating", "created": iso(t), "type": type_,
                                                     "area": area, "code": code, "title": title,
                                                     "severity": severity, "description": description}
+            self.st["checks"][str(row["id"])] = {"area": area, "from": iso(t), "new": True, "acc": {}}
             decision = await self.store.insert("incident_decisions", {
                 "id": row["id"], "status": "generating", "created_at": t})
             self.hub.upsert("incident_decisions", decision)
@@ -694,7 +707,8 @@ class PlantSimulator:
             return False
         deadline = self.now + MINUTE * DECISION_WINDOW
         d.update(status="ready", deadline=iso(deadline),
-                 actions={o["key"]: o["action"] for o in payload["options"]})
+                 actions={o["key"]: o["action"] for o in payload["options"]},
+                 forecast={o["key"]: {k: o["values"][k] for k in CHECK_METRICS} for o in payload["options"]})
         row = await self.store.update("incident_decisions", inc_id, {
             "status": "ready", "payload": payload, "recommended": payload["recommended"],
             "source": payload["source"], "deadline_at": deadline})
@@ -714,6 +728,9 @@ class PlantSimulator:
         action = d["actions"][choice]
         if action != "none":
             await self.apply_action(action, inc_id, t)
+        check = self.st["checks"].get(str(inc_id))
+        if check is not None and "forecast" in d:  # решения из состояния до появления проверок не проверяем
+            check.update(choice=choice, forecast=d["forecast"][choice])
         await self._close_decision(inc_id, "applied", t, choice=choice, by=by)
 
         # Инцидент — в работу; закроется, когда закончится простой (или через обычное время для прочих)
@@ -757,6 +774,9 @@ class PlantSimulator:
     async def _close_decision(self, inc_id: int, status: str, t: datetime, choice: str | None = None,
                               by: str = "auto") -> None:
         self.st["decisions"].pop(str(inc_id), None)
+        check = self.st["checks"].get(str(inc_id))
+        if check is not None and "choice" not in check:  # решения не было — проверять нечего
+            del self.st["checks"][str(inc_id)]
         inc = self.st["incidents"].get(str(inc_id))
         if inc:
             inc.pop("decision", None)
@@ -765,6 +785,44 @@ class PlantSimulator:
             fields["chosen"] = choice
         row = await self.store.update("incident_decisions", inc_id, fields)
         self.hub.upsert("incident_decisions", row)
+
+    # ---------------------------------------------------------------- проверка прогнозов
+
+    async def _track_checks(self, before: dict) -> None:
+        from app.simulator.forecast import HORIZON  # forecast импортирует движок
+
+        for inc_id, c in list(self.st["checks"].items()):
+            if c.pop("new", False):  # инцидент появился на этом шаге: окно, как и прогноз, начинается после него
+                continue
+            area, acc = c["area"], c["acc"]
+            for key in ("line_out", f"minutes:{area}", f"runtime:{area}", f"made:{area}", f"scrap:{area}"):
+                acc[key] = acc.get(key, 0) + self.stats[key] - before.get(key, 0)
+            c["steps"] = c.get("steps", 0) + 1
+            if c["steps"] >= HORIZON:
+                del self.st["checks"][inc_id]
+                if "choice" in c:
+                    await self._finish_check(int(inc_id), c, HORIZON)
+
+    async def _finish_check(self, inc_id: int, c: dict, horizon: int) -> None:
+        from app.simulator.forecast import outcome_metrics
+
+        fact = outcome_metrics(c["acc"], c["area"], "none")
+        forecast = c["forecast"]
+        # Точность — по выпуску линии: главная метрика, от неё зависит эффект в тенге
+        accuracy = max(0.0, 1 - abs(fact["output"] - forecast["output"]) / max(forecast["output"], 1)) * 100
+        check = {
+            "choice": c["choice"], "from": c["from"], "to": iso(self.now), "horizon_min": horizon,
+            "forecast": forecast,
+            "fact": {k: round(fact[k], digits) if digits else round(fact[k]) for k, digits in CHECK_METRICS.items()},
+            "accuracy": round(accuracy),
+        }
+        row = await self.store.merge_payload("incident_decisions", inc_id, {"check": check})
+        if row:
+            self.hub.upsert("incident_decisions", row)
+        area_id = self.refs["area_ids"].get(c["area"])
+        self.hub.notice("n", f"Прогноз проверен: точность {check['accuracy']}%",
+                        f"Выпуск за {horizon // 60} ч: прогноз {forecast['output']}, факт {check['fact']['output']} авто",
+                        incident_id=inc_id, area_id=area_id, kind="decision")
 
     # ---------------------------------------------------------------- ручные сценарии
 

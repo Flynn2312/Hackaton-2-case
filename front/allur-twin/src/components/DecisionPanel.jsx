@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { S, fmt1, fmtInt, fmtTime, sgn } from '../lib/format';
+import { S, accuracySt, fmt1, fmtInt, fmtKzt, fmtTime, sgn } from '../lib/format';
 
 // Боковая панель решений по инцидентам: «ничего не менять», вариант A и Б от ИИ,
 // таблица прогноза показателей на 3 часа и рекомендация. Без выбора по таймеру применяется «ничего не менять».
@@ -12,6 +12,58 @@ const fmtValue = (metric, v) => {
   if (metric.key === 'effect') return v === 0 ? '0' : sgn(v);
   return fmtInt(v);
 };
+
+// Цена бездействия: на сколько «ничего не менять» хуже лучшего варианта (эффект в payload — тыс. ₸)
+function InactionCost({ p }) {
+  const best = Math.max(...p.options.filter((o) => o.key !== 'none').map((o) => o.values.effect ?? 0));
+  if (!(best > 0)) return null;
+  return (
+    <div className="text-xs text-neutral-700">
+      Цена бездействия: <b className="text-text font-medium">≈ {fmtKzt(best * 1000)}</b> за {p.horizon_min / 60} ч к лучшему варианту
+    </div>
+  );
+}
+
+// Проверка прогноза: через 3 ч после инцидента факт сравнивается с прогнозом выбранного варианта
+function ForecastCheck({ d, p }) {
+  const c = p.check;
+  if (!c) {
+    return (
+      <div className="text-xs text-neutral-700">
+        Проверка прогноза: через {p.horizon_min / 60} ч работы линии после инцидента сравним прогноз с фактом.
+      </div>
+    );
+  }
+  const st = accuracySt(c.accuracy);
+  const metrics = p.metrics.filter((m) => m.key in c.fact);
+  return (
+    <div className="border border-divider p-3 flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-medium text-sm">Проверка прогноза · {LABEL[c.choice]}</span>
+        <span className="text-[13px]" style={{ color: S[st].ink }}>сбылся на <b className="num text-[17px]">{c.accuracy}%</b></span>
+      </div>
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr className="text-[11px] text-neutral-700">
+            <th className="text-left font-normal py-1">{fmtTime(c.from)}–{fmtTime(c.to)}</th>
+            <th className="text-right font-normal py-1 w-[70px]">прогноз</th>
+            <th className="text-right font-normal py-1 w-[70px]">факт</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((m) => (
+            <tr key={m.key} className="border-t border-neutral-300">
+              <td className="py-1 text-neutral-800">{m.label}<span className="text-neutral-600">, {m.unit}</span></td>
+              <td className="py-1 text-right num">{fmtValue(m, c.forecast[m.key])}</td>
+              <td className="py-1 text-right num font-semibold">{fmtValue(m, c.fact[m.key])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {d.chosen !== 'none' && <div className="text-[11px] text-neutral-600">Точность — по выпуску линии. Эффект к «ничего не менять» проверить нельзя: второго завода без решения нет.</div>}
+    </div>
+  );
+}
 
 // Лучшее значение в строке таблицы (если варианты отличаются)
 function bestKey(metric, options) {
@@ -72,13 +124,19 @@ function DecisionBody({ decision: d, simNow, sim, onDecide, busy, error }) {
         <>
           <div className="text-sm leading-[1.5]">{p.analysis}</div>
 
-          {d.status === 'ready' && <Countdown deadline={d.deadline_at} simNow={simNow} sim={sim} />}
+          {d.status === 'ready' && (
+            <div className="flex flex-col gap-1">
+              <Countdown deadline={d.deadline_at} simNow={simNow} sim={sim} />
+              <InactionCost p={p} />
+            </div>
+          )}
           {d.status === 'applied' && (
             <div className="text-sm px-3 py-2" style={{ background: S.g.tint, color: S.g.ink }}>
               Принято: <b>{LABEL[d.chosen]}</b>{d.chosen !== 'none' && ` — ${p.options.find((o) => o.key === d.chosen)?.title}`}
               {' · '}{d.decided_by === 'operator' ? 'выбор оператора' : 'автоматически по истечении времени'}
             </div>
           )}
+          {d.status === 'applied' && <ForecastCheck d={d} p={p} />}
           {d.status === 'expired' && (
             <div className="text-sm px-3 py-2 bg-neutral-200">Решение не понадобилось: проблема устранилась до выбора.</div>
           )}
@@ -207,7 +265,10 @@ export default function DecisionPanel({ model, sim, simNow, selectedId, onSelect
       <div className="px-5 py-3 border-b border-divider flex items-center justify-between gap-3">
         <div>
           <div className="font-heading font-semibold text-lg leading-tight">Решения по инцидентам</div>
-          <div className="text-xs text-neutral-700">{pending.length ? `Ждут выбора: ${pending.length}` : 'Нет инцидентов, ожидающих решения'}</div>
+          <div className="text-xs text-neutral-700">
+            {pending.length ? `Ждут выбора: ${pending.length}` : 'Нет инцидентов, ожидающих решения'}
+            {model.forecastAccuracy && <> · прогнозы сбываются на <b className="text-text font-medium">{model.forecastAccuracy.value}%</b> ({model.forecastAccuracy.n} пров.)</>}
+          </div>
         </div>
         <button type="button" onClick={onClose} className="btn btn-ghost btn-icon text-xl" aria-label="Закрыть">×</button>
       </div>

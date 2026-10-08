@@ -132,13 +132,11 @@ Claude по этим цифрам коротко пишет вывод, ключ
 app/
   main.py            # создание приложения, CORS, роутеры
   core/config.py     # настройки из .env
-  core/database.py   # пул asyncpg (get_db) и клиент Supabase (get_supabase)
+  core/database.py   # пул asyncpg (get_db) и клиент Supabase для сида (get_supabase)
   api/*.py           # эндпоинты /api/* (данные из БД через repositories/)
-  api/routes/        # AI-движок и сценарная аналитика кейса (Copilot, What-If, ROI)
   repositories/      # SQL-запросы к БД
-  services/          # AI-движок, аналитика, данные кейса
-  simulator/         # симулятор завода: модель, движок, запуск, WebSocket-хаб
-  schemas/           # Pydantic-модели AI и аналитики
+  simulator/         # симулятор завода: модель и экономика (plant), движок, прогнозы, проверка прогнозов,
+                     # Claude-советник и ассистент, запуск, WebSocket-хаб
 scripts/seed.py      # генерация тестовых данных
 supabase/            # SQL-миграции
 ```

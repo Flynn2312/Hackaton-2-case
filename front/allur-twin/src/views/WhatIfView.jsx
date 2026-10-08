@@ -28,7 +28,7 @@ function initialState(model) {
   };
 }
 
-// Пресет из карточки оборудования или AI Risk Center
+// Пресет из паспорта оборудования или карточки участка
 function withPreset(st, preset) {
   const stops = Object.fromEntries(STOP_NODES.map(([k, name]) => [k, !!preset.equipmentName?.includes(name)]));
   const nodeStopped = Object.values(stops).some(Boolean);

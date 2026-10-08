@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PageTitle, Segmented } from '../components/ui';
 import { NORMS } from '../lib/model';
-import { S, fmtDateTime } from '../lib/format';
+import { S, accuracySt, fmtDateTime } from '../lib/format';
 
 const FILTERS = [['all', 'Все'], ['crit', 'Критичные'], ['open', 'Незакрытые']];
 const PAGE = 50;
@@ -23,6 +23,7 @@ function DecisionLine({ decision: d, onOpen }) {
     <button type="button" className="text-[11px] mt-0.5 text-left hover:underline" style={{ color: 'var(--color-accent-700)' }} onClick={onOpen}>
       Решение: {CHOICE[d.chosen]}{title ? ` — ${title}` : ''} · {d.decided_by === 'operator' ? 'оператор' : 'авто'}
       {d.recommended === d.chosen ? ' · как рекомендовал ИИ' : ''}
+      {d.payload?.check && <span style={{ color: S[accuracySt(d.payload.check.accuracy)].ink }}> · прогноз сбылся на {d.payload.check.accuracy}%</span>}
     </button>
   );
 }
