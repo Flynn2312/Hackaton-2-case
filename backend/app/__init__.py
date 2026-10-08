@@ -66,17 +66,6 @@ def create_app() -> FastAPI:
     ):
         app.include_router(r)
 
-    # AI-движок и сценарная аналитика кейса Allur (Copilot, What-If, прогнозы, ROI)
-    from app.api.routes import ai as routes_ai
-    from app.api.routes import analytics as routes_analytics
-
-    app.include_router(routes_ai.router)
-    app.include_router(routes_analytics.router)
-
-    # Дополнительные префиксы /api для совместимости
-    app.include_router(routes_ai.router, prefix="/api")
-    app.include_router(routes_analytics.router, prefix="/api")
-
     @app.get("/health", tags=["health"])
     def root_health():
         return {"status": "ok"}

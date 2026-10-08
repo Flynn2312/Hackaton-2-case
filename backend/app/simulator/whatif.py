@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from app.simulator import plant as P
 from app.simulator.advisor import MODEL_LABELS, claude_json
 from app.simulator.engine import PlantSimulator, iso
-from app.simulator.forecast import CAR_MARGIN_KZT, DEFECT_KZT, MemoryStore, NullHub
+from app.simulator.forecast import MemoryStore, NullHub
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +142,8 @@ async def _forecast(snapshot: dict, refs: dict, sc: WhatIfScenario) -> tuple[dic
         return {k: sum(r[k] for r in runs) / len(runs) for k in runs[0]}
 
     base, scen = await avg(None), await avg(sc)
-    scen["money_mln"] = ((scen["output"] - base["output"]) * CAR_MARGIN_KZT
-                         - (scen["scrap_count"] - base["scrap_count"]) * DEFECT_KZT) / 1e6
+    scen["money_mln"] = ((scen["output"] - base["output"]) * P.CAR_MARGIN_KZT
+                         - (scen["scrap_count"] - base["scrap_count"]) * P.DEFECT_KZT) / 1e6
     return base, scen
 
 

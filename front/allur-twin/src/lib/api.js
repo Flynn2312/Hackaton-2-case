@@ -56,11 +56,9 @@ async function getAll(path, params = {}) {
 }
 
 export const api = {
-  health: () => get('/health/db'),
   factories: () => get('/factories'),
   areas: (factoryId) => get('/production-areas', { factory_id: factoryId }),
   equipment: () => get('/equipment'),
-  carModels: () => get('/car-models'),
   shifts: (factoryId, limit = 80) => get('/shifts', { factory_id: factoryId, limit }),
   plans: (factoryId) => getAll('/production-plans', { factory_id: factoryId }),
   productionRecords: (dateFrom, dateTo) => getAll('/production-records', { date_from: dateFrom, date_to: dateTo }),
@@ -69,7 +67,6 @@ export const api = {
   activeDowntime: () => getAll('/downtime-events', { active: true }),
   incidents: (dateFrom) => getAll('/incidents', { date_from: dateFrom }),
   oee: (factoryId, dateFrom, dateTo) => get('/analytics/oee', { factory_id: factoryId, date_from: dateFrom, date_to: dateTo }),
-  qualityMetrics: (dateFrom, dateTo) => get('/analytics/quality-metrics', { date_from: dateFrom, date_to: dateTo }),
   liveStatus: () => get('/digital-twin/live-status'),
   simStatus: () => get('/sim/status'),
   simInject: (scenario) => post('/sim/inject', { scenario }),
