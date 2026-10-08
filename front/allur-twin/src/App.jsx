@@ -12,10 +12,11 @@ import EquipmentPassportModal from './components/EquipmentPassportModal';
 import SimControl from './components/SimControl';
 import Toasts from './components/Toasts';
 import DecisionPanel from './components/DecisionPanel';
+import { appHref } from './lib/route';
 
-export default function App() {
+export default function App({ initialView = 'flow' }) {
   const { model, error, loading, reload, connected, sim, simNow, notices, dismissNotice, control } = useLiveTwin();
-  const [view, setView] = useState('flow');
+  const [view, setView] = useState(initialView);
   const [sel, setSel] = useState(null);
   const [logArea, setLogArea] = useState(null);
   const [whatIf, setWhatIf] = useState(null);
@@ -24,6 +25,9 @@ export default function App() {
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [decisionId, setDecisionId] = useState(null);
   const seenDecisions = useRef(new Set());
+
+  // Текущая вкладка — в адресе: перезагрузка и ссылки с лендинга открывают её же
+  useEffect(() => { window.history.replaceState(null, '', appHref(view)); }, [view]);
 
   const openDecision = (id = null) => { setDecisionId(id); setDecisionOpen(true); };
 
@@ -62,7 +66,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center gap-5 px-7 h-14 whitespace-nowrap overflow-hidden border-b border-divider">
         <div className="flex items-baseline gap-2">
-          <span className="font-heading font-semibold text-[22px] tracking-[.02em]">ALLUR TWIN</span>
+          <a href="#/" className="font-heading font-semibold text-[22px] tracking-[.02em] hover:text-accent-700" title="На главную">ALLUR TWIN</a>
           <span className="text-xs text-neutral-700">{model ? model.factory.location.split(',').pop().trim() : 'Костанай'} · линия 1</span>
         </div>
         <nav className="flex h-full shrink-0">

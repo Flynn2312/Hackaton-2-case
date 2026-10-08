@@ -70,6 +70,7 @@ export const api = {
   incidents: (dateFrom) => getAll('/incidents', { date_from: dateFrom }),
   oee: (factoryId, dateFrom, dateTo) => get('/analytics/oee', { factory_id: factoryId, date_from: dateFrom, date_to: dateTo }),
   qualityMetrics: (dateFrom, dateTo) => get('/analytics/quality-metrics', { date_from: dateFrom, date_to: dateTo }),
+  liveStatus: () => get('/digital-twin/live-status'),
   simStatus: () => get('/sim/status'),
   simInject: (scenario) => post('/sim/inject', { scenario }),
   simPause: () => post('/sim/pause'),
