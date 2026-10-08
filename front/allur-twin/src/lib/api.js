@@ -79,5 +79,6 @@ export const api = {
   simAiDecisions: (enabled) => post('/sim/ai-decisions', { enabled }),
   decisions: () => get('/decisions', { limit: 300 }),
   whatIf: (scenario) => post('/whatif/forecast', scenario),
+  assistant: (messages, areaCode) => post('/assistant/chat', { messages, area_code: areaCode }),
   decide: (incidentId, choice) => post(`/incidents/${incidentId}/decision`, { choice }),
 };

@@ -6,7 +6,7 @@ import WhatIfView from './views/WhatIfView';
 import AiRiskCenterView from './views/AiRiskCenterView';
 import RoiView from './views/RoiView';
 import IncidentsView from './views/IncidentsView';
-import CopilotView from './views/CopilotView';
+import AssistantView from './views/AssistantView';
 import AreaDrawer from './components/AreaDrawer';
 import EquipmentPassportModal from './components/EquipmentPassportModal';
 import SimControl from './components/SimControl';
@@ -53,7 +53,7 @@ export default function App() {
     ['airisk', 'AI Risk Center', { n: riskCount, st: 'r' }],
     ['roi', 'Экономика & ROI'],
     ['log', 'Инциденты', model?.incBadge],
-    ['chat', 'AI Copilot'],
+    ['chat', 'ИИ Ассистент'],
   ];
 
   const selArea = model && sel != null ? model.areas.find((a) => a.id === sel) : null;
@@ -152,7 +152,7 @@ export default function App() {
           )}
           {view === 'roi' && <RoiView model={model} />}
           {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
-          {view === 'chat' && <CopilotView model={model} request={chatRequest} />}
+          {view === 'chat' && <AssistantView model={model} request={chatRequest} />}
 
           {selArea && (
             <AreaDrawer

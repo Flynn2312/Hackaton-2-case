@@ -1,26 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
 import { Blueprint } from '../components/ui';
-import { answer, greeting, presets } from '../lib/copilot';
+import { api } from '../lib/api';
+import { answer as ruleAnswer, greeting, presets } from '../lib/assistant';
 
-export default function CopilotView({ model, request }) {
-  const [msgs, setMsgs] = useState(() => [{ me: false, text: greeting(model) }]);
+// ИИ-ассистент: отвечает только по данным цифрового двойника и только о заводе (Claude на бэкенде).
+// Если ИИ недоступен — встроенные правила по данным дашборда.
+export default function AssistantView({ model, request }) {
+  const [msgs, setMsgs] = useState(() => [{ me: false, text: greeting(model), local: true }]);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
   const [ctx, setCtx] = useState(request?.areaId ?? null);
   const modelRef = useRef(model);
   modelRef.current = model;
+  const msgsRef = useRef(msgs);
+  msgsRef.current = msgs;
   const handled = useRef(null);
+  const bottom = useRef(null);
 
-  const ask = (q, areaId = ctx) => {
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [msgs, thinking]);
+
+  const ask = async (q, areaId = ctx) => {
     q = (q || '').trim();
     if (!q || thinking) return;
-    setMsgs((m) => [...m, { me: true, text: q }]);
+    const history = [...msgsRef.current, { me: true, text: q }];
+    setMsgs(history);
     setDraft('');
     setThinking(true);
-    setTimeout(() => {
-      setMsgs((m) => [...m, { me: false, text: answer(q, areaId, modelRef.current) }]);
+    const area = modelRef.current.areas.find((a) => a.id === areaId);
+    try {
+      // Приветствие — локальное, в диалог для ИИ не входит
+      const messages = history.filter((m) => !m.local).map((m) => ({ role: m.me ? 'user' : 'assistant', text: m.text }));
+      const r = await api.assistant(messages, area?.code ?? null);
+      setMsgs((m) => [...m, { me: false, text: r.answer, followups: r.followups, source: r.source_label, offTopic: !r.relevant }]);
+    } catch {
+      setMsgs((m) => [...m, {
+        me: false, text: ruleAnswer(q, areaId, modelRef.current), local: true,
+        source: 'ИИ недоступен — ответ по встроенным правилам',
+      }]);
+    } finally {
       setThinking(false);
-    }, 600);
+    }
   };
 
   // Вопрос из боковой панели участка
@@ -35,30 +56,46 @@ export default function CopilotView({ model, request }) {
   const ctxArea = model.areas.find((a) => a.id === ctx);
   const ctxOpts = [{ id: null, name: 'Вся линия' }, ...model.areas];
   const s = model.stats;
+  const lastAi = [...msgs].reverse().find((m) => !m.me);
+  const suggestions = lastAi?.followups?.length ? lastAi.followups : presets(model);
 
   return (
     <main className="px-7 pt-6 pb-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-7 items-start">
       <Blueprint className="flex flex-col min-h-[600px]">
         <div className="px-[18px] py-3.5 border-b border-divider flex justify-between items-baseline gap-3">
-          <h4>AI Copilot</h4>
-          <span className="text-xs text-neutral-700">Контекст: {ctxArea ? ctxArea.name : 'вся линия'}</span>
+          <div>
+            <h4>ИИ Ассистент</h4>
+            <div className="text-xs text-neutral-700">Отвечает только о работе завода и только по данным цифрового двойника</div>
+          </div>
+          <span className="text-xs text-neutral-700 shrink-0">Контекст: {ctxArea ? ctxArea.name : 'вся линия'}</span>
         </div>
         <div className="flex-1 p-[18px] flex flex-col gap-3.5">
           {msgs.map((m, i) => (
             <div key={i} className={`flex ${m.me ? 'justify-end' : 'justify-start'}`}>
               <div
                 className="max-w-[78%] px-3.5 py-2.5 text-sm leading-[1.5] whitespace-pre-line text-pretty"
-                style={{ background: m.me ? 'var(--color-accent)' : 'transparent', color: m.me ? 'var(--color-bg)' : 'var(--color-text)', border: `1px solid ${m.me ? 'var(--color-accent)' : 'var(--color-divider)'}` }}
+                style={{
+                  background: m.me ? 'var(--color-accent)' : m.offTopic ? 'var(--color-neutral-200)' : 'transparent',
+                  color: m.me ? 'var(--color-bg)' : 'var(--color-text)',
+                  border: `1px solid ${m.me ? 'var(--color-accent)' : 'var(--color-divider)'}`,
+                }}
               >
-                <div className="text-[11px] tracking-[.06em] uppercase opacity-75 mb-1">{m.me ? 'Вы' : 'Copilot'}</div>
+                <div className="text-[11px] tracking-[.06em] uppercase opacity-75 mb-1">{m.me ? 'Вы' : 'ИИ Ассистент'}</div>
                 {m.text}
+                {m.source && <div className="text-[10px] text-neutral-600 mt-1.5 normal-case">{m.source}</div>}
               </div>
             </div>
           ))}
-          {thinking && <div className="text-[13px] text-neutral-700">Copilot анализирует телеметрию…</div>}
+          {thinking && (
+            <div className="text-[13px] text-neutral-700 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: 'var(--color-accent)' }} />
+              Ассистент анализирует данные завода…
+            </div>
+          )}
+          <div ref={bottom} />
         </div>
         <div className="px-[18px] py-3 flex gap-2 flex-wrap border-t border-divider">
-          {presets(model).map((q) => (
+          {suggestions.map((q) => (
             <button key={q} type="button" className="btn btn-secondary text-[13px]" disabled={thinking} onClick={() => ask(q)}>{q}</button>
           ))}
         </div>
@@ -66,9 +103,10 @@ export default function CopilotView({ model, request }) {
           <input
             className="input"
             value={draft}
+            maxLength={1000}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && ask(draft)}
-            placeholder="Спросите о линии, участке или причине простоя…"
+            placeholder="Спросите о линии, участке, оборудовании, браке, простоях или плане…"
           />
           <button type="button" className="btn btn-primary shrink-0" disabled={thinking || !draft.trim()} onClick={() => ask(draft)}>Отправить</button>
         </div>
