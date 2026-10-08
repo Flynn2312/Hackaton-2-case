@@ -4,7 +4,7 @@
 import { api } from './api';
 import {
   S, worst, localDate, localHour, fmtTime, fmtDateTime, dayStartIso, addDays, isWeekday,
-  eqShort, fmt1, fmtInt, pct, fmtHours,
+  eqShort, fmt1, fmtInt, fmtKzt, pct, fmtHours,
 } from './format';
 
 // Нормативы из кейса («Дополнительные вводные»)
@@ -27,6 +27,12 @@ export const ECON = {
   defectCut: 0.50,          // доля брака, устраняемая контролем параметров
   shortfallCut: 0.25,       // доля недовыпуска, возвращаемая балансировкой потока
 };
+
+// Доля мощности участка, которую снимает остановка узла (как plant.CRIT_WEIGHT в симуляторе):
+// критичный узел останавливает участок, средний — наполовину, некритичный на выпуск не влияет.
+// Нехватка комплектующих останавливает участок целиком.
+const STOP_WEIGHT = { high: 1, medium: 0.5, low: 0 };
+const stopWeight = (e) => (e.type === 'material_shortage' ? 1 : STOP_WEIGHT[e.eq?.criticality] ?? 0);
 
 const HISTORY_DAYS = 28;
 const SEVERITY_ST = { critical: 'r', high: 'r', medium: 'y', low: 'g' };
@@ -398,6 +404,40 @@ export function buildModel(raw, simNow = null) {
   };
   economy.total = sum(economy.rows, (r) => r.v);
 
+  // ── Финансы за сутки: прямые потери = внеплановый простой + брак и доработка.
+  // Недовыпуск отдельно не считаем: упущенная маржа уже входит в стоимость минуты простоя, иначе учли бы её дважды.
+  const lossKzt = (e) => e.minutes * stopWeight(e) * ECON.downtimeMinKzt;
+  const stopsDay = dtDay.filter((e) => e.unplanned && stopWeight(e) > 0);
+  const finAreas = areas.map((a) => {
+    const evs = stopsDay.filter((e) => e.areaId === a.id);
+    const defects = a.scrap + a.rework;
+    const downtimeKzt = sum(evs, lossKzt);
+    const defectKzt = defects * ECON.defectKzt;
+    return { id: a.id, name: a.name, downtimeMin: sum(evs, (e) => e.minutes), downtimeKzt, defects, defectKzt, total: downtimeKzt + defectKzt };
+  });
+  const finDowntime = sum(finAreas, (a) => a.downtimeKzt);
+  const finDefect = sum(finAreas, (a) => a.defectKzt);
+  // Эффект принятых сегодня решений ИИ (прогноз к «ничего не менять», тыс. ₸ в payload)
+  const appliedToday = decisions.filter((d) => d.status === 'applied' && d.chosen && d.chosen !== 'none' && d.decided_at && localDate(d.decided_at) === day);
+  const aiEffect = sum(appliedToday, (d) => (d.payload?.options?.find((o) => o.key === d.chosen)?.values?.effect ?? 0) * 1000);
+  const dtTone = tone(critDowntime <= NORMS.critDowntime * 0.75, critDowntime <= NORMS.critDowntime * 1.25);
+  const defTone = worstDefect ? tone(worstDefect.defect <= NORMS.defect, worstDefect.defect <= NORMS.defect * 2) : 'g';
+  const finance = {
+    areas: finAreas,
+    total: finDowntime + finDefect,
+    // Идущие остановки для счётчика «Линия теряет сейчас»: ставка ₸/мин с учётом веса узла
+    stops: dt.filter((e) => e.active && e.unplanned && stopWeight(e) > 0).map((e) => ({
+      id: e.id, areaId: e.areaId, area: areaById[e.areaId]?.name, name: eqShort(e.eq.name), reason: e.reason,
+      startedAt: ts(e.started_at), rate: stopWeight(e) * ECON.downtimeMinKzt,
+    })),
+    kpis: [
+      { l: 'Потери за сутки', v: fmtKzt(finDowntime + finDefect), n: 'простой + брак', st: worst(dtTone, defTone) },
+      { l: 'Простой оборудования', v: fmtKzt(finDowntime), n: `${fmtInt(sum(stopsDay, (e) => e.minutes))} мин остановок`, st: dtTone },
+      { l: 'Брак и доработка', v: fmtKzt(finDefect), n: `${fmtInt(sum(finAreas, (a) => a.defects))} ед. на исправление`, st: defTone },
+      { l: 'Эффект решений ИИ', v: aiEffect ? `${aiEffect > 0 ? '+' : '−'}${fmtKzt(Math.abs(aiEffect))}` : '0 ₸', n: appliedToday.length ? `принято сегодня: ${appliedToday.length}` : 'решений сегодня не было', st: aiEffect < 0 ? 'y' : 'g' },
+    ],
+  };
+
   // ── База для What-If
   const wdtArea = worstDefect;
   const whatIfBase = {
@@ -422,7 +462,7 @@ export function buildModel(raw, simNow = null) {
   const notG = areas.filter((a) => a.st !== 'g');
   return {
     factory, day, anchor, lastShift, dayShifts, areas, finalArea, hours, hourPlan, dayPlan,
-    kpis, alerts: alerts.slice(0, 4), incidents: incs, decisions, pendingDecisions, orders, economy, whatIfBase, eqTrends, risingEq,
+    kpis, alerts: alerts.slice(0, 4), incidents: incs, decisions, pendingDecisions, orders, economy, finance, whatIfBase, eqTrends, risingEq,
     lineOee, critDowntime, totalDowntime, worstDefect, bottleneck, monthForecast, monthPlan, avgDaily,
     flowBadge: { n: notG.length, st: worst(...notG.map((a) => a.st)) },
     incBadge: { n: incs.filter((i) => i.open).length, st: incs.some((i) => i.open && i.st === 'r') ? 'r' : 'y' },
