@@ -48,6 +48,12 @@
     50% { opacity: .3; }
   }
 
+  --animate-toast-in: toast-in .25s ease-out;
+  @keyframes toast-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
   --animate-convey: convey-move 2.2s linear infinite;
   @keyframes convey-move {
     0% { transform: translateX(-100%); opacity: 0; }

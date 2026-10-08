@@ -35,32 +35,48 @@ export const INCIDENT_STATE = { open: 'Открыт', in_progress: 'В рабо�
 const EQ_STATE = { running: 'в работе', idle: 'простаивает', maintenance: 'на ТО', breakdown: 'авария' };
 const EQ_ST = { running: 'g', idle: 'y', maintenance: 'y', breakdown: 'r' };
 
-export async function loadTwin() {
+// Сырые данные с бэкенда. Живой поток (lib/live.js) дописывает в них изменения из WebSocket
+// и пересобирает модель через buildModel — без повторной загрузки.
+export async function loadRaw() {
   const factories = await api.factories();
   if (!factories.length) throw new Error('В базе нет заводов');
   const factory = factories[0];
 
-  const [areas, equipment, shifts, plans, downtime, incidents] = await Promise.all([
+  const [areas, equipment, shifts, plans, sim] = await Promise.all([
     api.areas(factory.id), api.equipment(), api.shifts(factory.id), api.plans(factory.id),
-    api.downtime(), api.incidents(),
+    api.simStatus().catch(() => null),
   ]);
   if (!shifts.length) throw new Error('В базе нет смен');
   if (!areas.length) throw new Error('В базе нет производственных участков');
 
-  const lastShift = shifts.reduce((a, b) => (a.start_at > b.start_at ? a : b));
+  const lastShift = latestShift(shifts);
   const day = localDate(lastShift.start_at);
   const from = dayStartIso(addDays(day, -HISTORY_DAYS));
   const to = dayStartIso(addDays(day, 1));
+  const live = !!sim?.sim_now;
 
-  const [records, quality, oee] = await Promise.all([
-    api.productionRecords(from, to),
-    api.qualityRecords(from, to),
-    api.oee(factory.id, dayStartIso(day), to).catch(() => null),
+  const [records, quality, downtime, activeDowntime, incidents, oee] = await Promise.all([
+    api.productionRecords(from),
+    api.qualityRecords(from),
+    api.downtime(from),
+    api.activeDowntime(),
+    api.incidents(from),
+    // В живом режиме OEE считаем на клиенте: серверный снимок устаревает с каждой минутой симуляции
+    live ? null : api.oee(factory.id, dayStartIso(day), to).catch(() => null),
   ]);
+  // Идущие простои могли начаться раньше окна истории
+  const seen = new Set(downtime.map((d) => d.id));
+  for (const d of activeDowntime) if (!seen.has(d.id)) downtime.push(d);
 
-  return buildModel({ factory, areas, equipment, shifts, plans, downtime, incidents, records, quality, oee, lastShift, day });
+  return { factory, areas, equipment, shifts, plans, downtime, incidents, records, quality, oee, sim };
 }
 
+export async function loadTwin() {
+  return buildModel(await loadRaw());
+}
+
+const ts = (v) => new Date(v).getTime();
+const latestShift = (shifts) => shifts.reduce((a, b) => (ts(a.start_at) > ts(b.start_at) ? a : b));
 const sum = (arr, f) => arr.reduce((a, x) => a + (f ? f(x) : x), 0);
 const groupBy = (arr, key) => arr.reduce((m, x) => ((m[key(x)] ??= []).push(x), m), {});
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -71,11 +87,15 @@ function param(name, value, display, { min, max, lo, hi, norm, st }) {
   return { name, value, display, norm, st, pos: toPct(value), normFrom: toPct(lo), normWidth: toPct(hi) - toPct(lo) };
 }
 
-function buildModel({ factory, areas: areasRaw, equipment, shifts, plans, downtime, incidents, records, quality, oee, lastShift, day }) {
-  const anchor = new Date(lastShift.end_at).getTime(); // «сейчас» = конец последней смены в БД
+// simNow — текущее время завода (мс) от живого потока; без него — из статуса симулятора или конец последней смены
+export function buildModel(raw, simNow = null) {
+  const { factory, areas: areasRaw, equipment, shifts, plans, downtime, incidents, records, quality, oee, sim } = raw;
+  const lastShift = latestShift(shifts);
+  const day = localDate(lastShift.start_at);
+  const anchor = simNow ?? (sim?.sim_now ? new Date(sim.sim_now).getTime() : new Date(lastShift.end_at).getTime());
   const areasSorted = [...areasRaw].sort((a, b) => a.sequence - b.sequence);
   const shiftById = Object.fromEntries(shifts.map((s) => [s.id, s]));
-  const dayShifts = shifts.filter((s) => localDate(s.start_at) === day).sort((a, b) => (a.start_at > b.start_at ? 1 : -1));
+  const dayShifts = shifts.filter((s) => localDate(s.start_at) === day).sort((a, b) => ts(a.start_at) - ts(b.start_at));
   const dayShiftIds = new Set(dayShifts.map((s) => s.id));
   const eqById = Object.fromEntries(equipment.map((e) => [e.id, e]));
   const eqByArea = groupBy(equipment, (e) => e.production_area_id);
@@ -101,7 +121,7 @@ function buildModel({ factory, areas: areasRaw, equipment, shifts, plans, downti
   const qualByArea = groupBy(qual, (q) => q.production_area_id);
 
   // ── Инциденты
-  const incs = incidents.map((i) => {
+  const incs = [...incidents].sort((a, b) => ts(b.created_at) - ts(a.created_at)).map((i) => {
     const st = SEVERITY_ST[i.severity] ?? 'y';
     const match = i.equipment_id && dt.find((e) => e.equipment_id === i.equipment_id
       && Math.abs(new Date(e.started_at) - new Date(i.created_at)) < 3 * 3600e3);
@@ -117,12 +137,14 @@ function buildModel({ factory, areas: areasRaw, equipment, shifts, plans, downti
     const eqs = eqByArea[a.id] ?? [];
     const dayRecs = (recsByArea[a.id] ?? []).filter((r) => dayShiftIds.has(r.shift_id));
     const dayQual = (qualByArea[a.id] ?? []).filter((q) => dayShiftIds.has(q.shift_id));
-    const hasRec = dayRecs.length > 0;
 
     const plan = sum(dayRecs, (r) => r.planned_quantity);
     const actual = sum(dayRecs, (r) => r.actual_quantity);
     const runtime = sum(dayRecs, (r) => r.runtime_minutes);
-    const availMin = new Set(dayRecs.map((r) => r.timestamp)).size * 60;
+    // Доступное время: полный час для прошедших часов, для идущего — сколько минут уже прошло
+    const hourStarts = [...new Set(dayRecs.map((r) => new Date(r.timestamp).getTime()))];
+    const availMin = sum(hourStarts, (t) => clamp((anchor - t) / 60000, 0, 60));
+    const hasRec = dayRecs.length > 0 && availMin >= 5; // первые минуты смены ещё не показательны
     const total = sum(dayQual, (q) => q.total_quantity);
     const good = sum(dayQual, (q) => q.good_quantity);
     const scrap = sum(dayQual, (q) => q.scrap_quantity);

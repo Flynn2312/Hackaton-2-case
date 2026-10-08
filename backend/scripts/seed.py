@@ -17,157 +17,26 @@
 - строки из файла с тестовыми данными (простои и план/факт/брак за 01–02.10) воспроизводятся точно.
 """
 
-import math
 import random
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from app.core.database import get_supabase
+from app.simulator.plant import (
+    AREA_NAMES, AREAS, CAR_MODELS, CRIT_WEIGHT, EQUIPMENT, EQUIPMENT_BY_CODE, FACTORY, HOURLY_PLAN,
+    INITIAL_BUFFER, LINE_AREAS, MATERIAL_SHORTAGE_REASONS, MAX_BUFFER, QUALITY_INCIDENT_THRESHOLD, REASONS,
+    REWORK_RATE, SAFETY_INCIDENTS, SCRAP_RATE, SHIFT_MINUTES, TREND_REASONS, TZ, binomial, downtime_severity, poisson,
+)
 
 SEED = 3
-TZ = timezone(timedelta(hours=5))  # Asia/Qostanay
 START_DATE = date(2026, 7, 1)
 END_DATE = date(2026, 10, 5)
 NOW = datetime(2026, 10, 6, 9, 0, tzinfo=TZ)
 HOLIDAYS = {date(2026, 7, 6), date(2026, 8, 31)}  # День столицы, перенос Дня Конституции
 
-SHIFT_MINUTES = 8 * 60
-HOURLY_PLAN = 15  # 120 авто за смену, как в тестовых данных
-INITIAL_BUFFER = 10
-MAX_BUFFER = 30
-
-FACTORY = {"name": "СарыаркаАвтоПром", "location": "Казахстан, г. Костанай"}
-
-CAR_MODELS = [
-    ("Chevrolet Onix", "CHEV-ONIX"),
-    ("Chevrolet Cobalt", "CHEV-COBALT"),
-    ("JAC J7", "JAC-J7"),
-    ("Chevrolet Tracker", "CHEV-TRACKER"),
-]
-
-# code, name, sequence — по схеме участков из тестовых данных
-AREAS = [
-    ("WH-IN", "Склад комплектующих", 1),
-    ("WELD", "Сварка", 2),
-    ("PAINT", "Окраска", 3),
-    ("ASSY", "Сборка", 4),
-    ("QC", "Контроль качества", 5),
-    ("WH-OUT", "Склад готовой продукции", 6),
-]
-LINE_AREAS = ["WELD", "PAINT", "ASSY", "QC"]
-AREA_NAMES = {code: name for code, name, _ in AREAS}
-
-# area, code, name, criticality, kind, ожидаемое число остановок за смену
-EQUIPMENT = [
-    ("WH-IN", "WH-FL-01", "Погрузчик Toyota Погрузчик-01", "low", "forklift", 0.03),
-    ("WH-IN", "WH-FL-02", "Погрузчик Toyota Погрузчик-02", "low", "forklift", 0.03),
-    ("WH-IN", "WH-AGV-01", "Транспортная тележка AGV-01", "medium", "agv", 0.04),
-    ("WH-IN", "WH-AGV-02", "Транспортная тележка AGV-02", "medium", "agv", 0.04),
-    ("WELD", "WLD-ABB-01", "Сварочный робот ABB-01", "medium", "weld_robot", 0.07),
-    ("WELD", "WLD-ABB-02", "Сварочный робот ABB-02", "medium", "weld_robot", 0.06),
-    ("WELD", "WLD-ABB-03", "Сварочный робот ABB-03", "medium", "weld_robot", 0.06),
-    ("WELD", "WLD-ABB-04", "Сварочный робот ABB-04", "medium", "weld_robot", 0.07),
-    ("WELD", "WLD-ABB-05", "Сварочный робот ABB-05", "medium", "weld_robot", 0.06),
-    ("WELD", "WLD-ABB-06", "Сварочный робот ABB-06", "medium", "weld_robot", 0.05),
-    ("WELD", "WLD-JIG-01", "Сварочный кондуктор Кондуктор-01", "high", "jig", 0.03),
-    ("WELD", "WLD-JIG-02", "Сварочный кондуктор Кондуктор-02", "high", "jig", 0.03),
-    ("WELD", "WLD-CNV-01", "Конвейер кузовов Конвейер-01", "high", "conveyor", 0.04),
-    ("PAINT", "PNT-ECOAT-01", "Ванна катафореза КТЛ-01", "high", "ecoat", 0.04),
-    ("PAINT", "PNT-CAB-01", "Окрасочная камера Камера-01", "high", "paint_cabin", 0.08),
-    ("PAINT", "PNT-CAB-02", "Окрасочная камера Камера-02", "high", "paint_cabin", 0.09),
-    ("PAINT", "PNT-CAB-03", "Окрасочная камера Камера-03", "high", "paint_cabin", 0.07),
-    ("PAINT", "PNT-OVEN-01", "Сушильная печь Печь-01", "high", "oven", 0.05),
-    ("PAINT", "PNT-RBT-01", "Окрасочный робот Dürr-01", "medium", "paint_robot", 0.05),
-    ("PAINT", "PNT-RBT-02", "Окрасочный робот Dürr-02", "medium", "paint_robot", 0.05),
-    ("ASSY", "ASM-CNV-02", "Сборочный конвейер Конвейер-02", "high", "conveyor", 0.05),
-    ("ASSY", "ASM-CNV-03", "Сборочный конвейер Конвейер-03", "high", "conveyor", 0.05),
-    ("ASSY", "ASM-NUT-01", "Гайковёрт Atlas Copco ГВ-01", "medium", "nutrunner", 0.05),
-    ("ASSY", "ASM-NUT-02", "Гайковёрт Atlas Copco ГВ-02", "medium", "nutrunner", 0.05),
-    ("ASSY", "ASM-FILL-01", "Стенд заправки жидкостей Заправка-01", "high", "fill", 0.03),
-    ("QC", "QC-ALIGN-01", "Стенд развал-схождения СРС-01", "high", "qc_stand", 0.03),
-    ("QC", "QC-ROLL-01", "Роликовый тормозной стенд РТС-01", "high", "qc_stand", 0.03),
-    ("QC", "QC-RAIN-01", "Камера дождевания КД-01", "medium", "qc_stand", 0.03),
-    ("QC", "QC-LIGHT-01", "Туннель визуального контроля ТВК-01", "low", "qc_stand", 0.02),
-    ("WH-OUT", "WH-FL-03", "Погрузчик Toyota Погрузчик-03", "low", "forklift", 0.03),
-]
-EQUIPMENT_BY_CODE = {e[1]: e for e in EQUIPMENT}
-
 # Текущее состояние оборудования на момент NOW (остальное — running)
 CURRENT_STATUS = {"WH-AGV-02": "breakdown", "WH-FL-02": "maintenance", "WLD-ABB-06": "idle"}
-
-# reason, type, min_minutes, max_minutes, weight
-REASONS = {
-    "weld_robot": [
-        ("Ошибка датчика", "breakdown", 10, 35, 4),
-        ("Замена электродных колпачков", "changeover", 8, 15, 3),
-        ("Сбой программы робота", "breakdown", 15, 40, 2),
-        ("Плановое ТО", "planned_maintenance", 30, 45, 1),
-        ("Столкновение робота с оснасткой", "breakdown", 40, 90, 0.5),
-    ],
-    "jig": [
-        ("Износ фиксаторов кондуктора", "breakdown", 20, 45, 2),
-        ("Переналадка под модель", "changeover", 15, 30, 2),
-        ("Отказ пневмоцилиндра", "breakdown", 25, 60, 1),
-    ],
-    "conveyor": [
-        ("Застревание кузова", "breakdown", 8, 20, 3),
-        ("Перегрев привода конвейера", "breakdown", 10, 25, 2),
-        ("Обрыв цепи", "breakdown", 45, 90, 0.5),
-        ("Плановое ТО", "planned_maintenance", 30, 60, 1),
-    ],
-    "ecoat": [
-        ("Отклонение параметров ванны", "quality_issue", 20, 45, 2),
-        ("Замена фильтра", "planned_maintenance", 30, 50, 1),
-    ],
-    "paint_cabin": [
-        ("Замена фильтра", "planned_maintenance", 30, 50, 3),
-        ("Засорение форсунки", "breakdown", 15, 40, 2),
-        ("Нарушение влажности в камере", "quality_issue", 15, 30, 2),
-        ("Смена цвета", "changeover", 10, 20, 2),
-    ],
-    "oven": [
-        ("Отклонение температуры в печи", "breakdown", 20, 60, 2),
-        ("Отказ вентилятора рециркуляции", "breakdown", 30, 70, 1),
-    ],
-    "paint_robot": [
-        ("Засорение распылителя", "breakdown", 10, 25, 3),
-        ("Калибровка робота", "planned_maintenance", 20, 35, 1),
-    ],
-    "nutrunner": [
-        ("Отказ гайковёрта", "breakdown", 10, 25, 3),
-        ("Калибровка момента затяжки", "planned_maintenance", 15, 25, 1),
-    ],
-    "fill": [
-        ("Утечка в контуре заправки", "breakdown", 20, 50, 2),
-        ("Замена ёмкости с жидкостью", "changeover", 10, 20, 2),
-    ],
-    "qc_stand": [
-        ("Калибровка стенда", "planned_maintenance", 20, 40, 2),
-        ("Сбой ПО стенда", "breakdown", 10, 30, 2),
-    ],
-    "forklift": [
-        ("Разряд АКБ погрузчика", "other", 15, 30, 3),
-        ("Поломка гидравлики погрузчика", "breakdown", 40, 120, 1),
-    ],
-    "agv": [
-        ("Ошибка навигации AGV", "breakdown", 10, 20, 3),
-        ("Разряд АКБ", "other", 15, 30, 2),
-    ],
-}
-
-# Причины, которые чаще проявляются в период деградации оборудования
-TREND_REASONS = {
-    "ASM-CNV-03": [("Застревание кузова", "breakdown", 8, 20), ("Перегрев привода конвейера", "breakdown", 10, 25)],
-    "PNT-CAB-02": [("Засорение форсунки", "breakdown", 15, 40), ("Нарушение влажности в камере", "quality_issue", 15, 30)],
-}
-
-MATERIAL_SHORTAGE_REASONS = [
-    "Нехватка комплектующих: задержка поставки жгутов проводки",
-    "Нехватка комплектующих: задержка поставки сидений",
-    "Нехватка комплектующих: не доставлены шины",
-    "Нехватка комплектующих: ошибка комплектации на складе",
-]
 
 # Простои из тестовых данных: (дата, номер смены, оборудование, причина, тип, начало от старта смены, длительность)
 DOC_DOWNTIME = [
@@ -187,19 +56,6 @@ DOC_PRODUCTION = {
     (date(2026, 10, 2), "ASSY"): (119, 7.9, 99, 2),
 }
 
-SCRAP_RATE = {"WELD": 0.017, "PAINT": 0.032, "ASSY": 0.009, "QC": 0.005}
-REWORK_RATE = {"WELD": 0.015, "PAINT": 0.035, "ASSY": 0.02, "QC": 0.03}
-QUALITY_INCIDENT_THRESHOLD = {"WELD": 0.03, "PAINT": 0.05, "ASSY": 0.03, "QC": 0.025}
-
-SAFETY_INCIDENTS = [
-    ("Нарушение ТБ: работа без СИЗ", "Сотрудник находился в зоне без защитных очков. Проведён внеплановый инструктаж."),
-    ("Разлив технической жидкости", "Разлив жидкости на проходе. Зона огорожена, проведена уборка."),
-    ("Срабатывание световой завесы", "Сотрудник вошёл в зону работы робота при активном цикле. Робот остановлен защитой."),
-    ("Загромождение эвакуационного прохода", "Тара с комплектующими перекрыла проход. Тара перемещена."),
-]
-
-CRIT_WEIGHT = {"high": 1.0, "medium": 0.5, "low": 0.0}
-
 
 @dataclass
 class ShiftData:
@@ -213,19 +69,6 @@ class ShiftData:
     @property
     def name(self) -> str:
         return "Смена 1 (дневная)" if self.number == 1 else "Смена 2 (вечерняя)"
-
-
-def poisson(rng: random.Random, lam: float) -> int:
-    threshold, k, p = math.exp(-lam), 0, 1.0
-    while True:
-        p *= rng.random()
-        if p <= threshold:
-            return k
-        k += 1
-
-
-def binomial(rng: random.Random, n: int, p: float) -> int:
-    return sum(rng.random() < p for _ in range(n))
 
 
 def progress(day: date, start: date, end: date) -> float:
@@ -448,14 +291,6 @@ def apply_doc_overrides(shift: ShiftData, shift_prod: dict) -> None:
         for q, s in zip(quals, scraps):
             q["scrap_quantity"] = min(s, q["total_quantity"])
             q["rework_quantity"] = min(q["rework_quantity"], q["total_quantity"] - q["scrap_quantity"])
-
-
-def downtime_severity(crit: str, duration: int) -> str:
-    if crit == "high":
-        return "critical" if duration >= 60 else "high" if duration >= 30 else "medium"
-    if crit == "medium":
-        return "high" if duration >= 60 else "medium"
-    return "low"
 
 
 def shift_incidents(rng: random.Random, shift: ShiftData, events: list[dict], shift_prod: dict) -> list[dict]:

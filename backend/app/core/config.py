@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     cors_origins: str = ""
 
+    # Генерация живых данных фоновым симулятором завода. Локально для разработки можно выключить,
+    # чтобы не перехватывать генерацию у задеплоенного инстанса.
+    simulator_enabled: bool = True
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Возвращает список разрешенных CORS-доменов, разобранный из строки"""
