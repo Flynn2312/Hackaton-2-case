@@ -23,9 +23,7 @@ const PROBLEMS = [
 const MODULES = [
   { view: 'flow', t: 'Живой завод', d: 'Шесть участков и оборудование со статусами в реальном времени. Клик по участку — показатели, тренды и паспорт узла.' },
   { view: 'whatif', t: 'What-If', d: 'Что будет, если остановить узел, поднять загрузку или сократить буфер? Сценарий прогоняется на копии живого завода.' },
-  { view: 'airisk', t: 'AI Risk Center', d: 'Предиктивные алерты: износ, вибрация, температура сушки — до того, как узел встанет.' },
   { view: 'log', t: 'Инциденты и решения', d: 'Журнал отклонений. По новому инциденту ИИ предлагает варианты и прогноз их последствий.' },
-  { view: 'roi', t: 'Экономика & ROI', d: 'Калькулятор эффекта: стоимость часа простоя, брака и недовыпуска, CAPEX и срок окупаемости.' },
   { view: 'chat', t: 'ИИ Ассистент', d: 'Вопросы о смене, участках и простоях. Отвечает только по данным двойника.' },
 ];
 
@@ -95,10 +93,10 @@ function useSimClock(sim, at) {
 }
 
 const Section = ({ id, kicker, title, sub, children }) => (
-  <section id={id} className="px-4 md:px-7 py-14 md:py-20 border-b border-divider scroll-mt-14">
+  <section id={id} className="px-4 md:px-7 py-14 md:py-20 scroll-mt-16">
     <div className="max-w-[1180px] mx-auto flex flex-col gap-8">
       <div className="flex flex-col gap-2 max-w-[720px]">
-        {kicker && <h6 className="text-accent-700">{kicker}</h6>}
+        {kicker && <h6 className="text-brand">{kicker}</h6>}
         <h2 className="text-[30px] md:text-[40px]">{title}</h2>
         {sub && <p className="m-0 text-neutral-700">{sub}</p>}
       </div>
@@ -156,13 +154,13 @@ function LivePanel({ live, error, simMs }) {
 
 function PlantFlow({ areas, equipment }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-divider border border-divider">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       {areas.map((a, i) => {
         const eqs = equipment.filter((e) => e.production_area_id === a.id);
         const st = equipment.length ? areaStatus(eqs) : null;
         const running = eqs.filter((e) => e.status === 'running').length;
         return (
-          <div key={a.id} className="relative bg-bg p-4 flex flex-col gap-3 min-h-[150px] overflow-hidden">
+          <div key={a.id} className="relative bg-bg rounded-2xl p-4 flex flex-col gap-3 min-h-[150px] overflow-hidden shadow-[var(--shadow-card)]">
             <div className="h-1 -mx-4 -mt-4" style={{ background: st ? S[st].fill : 'var(--color-neutral-300)' }} />
             <span className="num text-[13px] text-neutral-600">{String(i + 1).padStart(2, '0')}</span>
             <span className="font-heading font-semibold text-xl leading-tight">{a.name}</span>
@@ -171,7 +169,7 @@ function PlantFlow({ areas, equipment }) {
             </span>
             {i < areas.length - 1 && (
               <span className="hidden lg:block absolute right-0 bottom-0 w-full h-0.5 overflow-hidden">
-                <span className="block w-1/3 h-full bg-accent animate-convey" style={{ animationDelay: `${i * 0.35}s` }} />
+                <span className="block w-1/3 h-full bg-brand animate-convey" style={{ animationDelay: `${i * 0.35}s` }} />
               </span>
             )}
           </div>
@@ -228,9 +226,12 @@ export default function LandingView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-20 bg-bg/90 backdrop-blur border-b border-divider">
-        <div className="max-w-[1180px] mx-auto flex items-center gap-6 px-4 md:px-7 h-14">
-          <a href="#/" className="font-heading font-semibold text-[22px] tracking-[.02em]">ALLUR TWIN</a>
+      <header className="sticky top-0 z-20 bg-bg/95 backdrop-blur border-b border-divider">
+        <div className="max-w-[1180px] mx-auto flex items-center gap-6 px-4 md:px-7 h-16">
+          <a href="#/" className="flex items-baseline gap-1 leading-none">
+            <span className="font-bold text-[28px] tracking-[-0.05em] text-brand">allur</span>
+            <span className="font-medium text-[17px] tracking-[-0.02em] text-neutral-600">twin</span>
+          </a>
           <nav className="hidden md:flex gap-5 text-sm text-neutral-700">
             <a href="#modules" className="hover:text-text">Возможности</a>
             <a href="#ai" className="hover:text-text">ИИ</a>
@@ -242,10 +243,10 @@ export default function LandingView() {
       </header>
 
       {/* Hero */}
-      <section className="px-4 md:px-7 pt-12 md:pt-20 pb-14 md:pb-20 border-b border-divider">
+      <section className="px-4 md:px-7 pt-12 md:pt-20 pb-14 md:pb-20 bg-bg">
         <div className="max-w-[1180px] mx-auto grid lg:grid-cols-[1.25fr_1fr] gap-10 lg:gap-14 items-center">
           <div className="flex flex-col gap-6">
-            <h6 className="text-accent-700">Кейс АО «Группа компаний АЛЛЮР» · Qostanai AI Industry Hackathon 2026</h6>
+            <h6 className="text-brand">Кейс АО «Группа компаний АЛЛЮР» · Qostanai AI Industry Hackathon 2026</h6>
             <h1 className="text-[38px] sm:text-[48px] md:text-[68px] leading-[1.02] break-words">Цифровой двойник автомобильного завода</h1>
             <p className="m-0 text-lg text-neutral-800 max-w-[560px]">
               Вся линия — от склада комплектующих до готовых машин — на одном экране. Простои, брак и узкие места видны
@@ -266,9 +267,9 @@ export default function LandingView() {
         title="Сбой на одном участке срывает план всей линии"
         sub="Участки связаны в цепочку: авария конвейера, раскалибровка печи или нехватка кузовов останавливают всё, что ниже по потоку. Так выглядели данные кейса:"
       >
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-divider border border-divider">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {PROBLEMS.map((p) => (
-            <div key={p.l} className="bg-bg p-5 flex flex-col gap-1">
+            <div key={p.l} className="bg-bg rounded-2xl p-5 flex flex-col gap-1 shadow-[var(--shadow-card)]">
               <span className="num text-[40px] leading-none" style={{ color: S.r.ink }}>{p.v}</span>
               <span className="font-medium">{p.l}</span>
               <span className="text-xs text-neutral-700">{p.n}</span>
@@ -288,13 +289,13 @@ export default function LandingView() {
 
       {/* Модули */}
       <Section id="modules" kicker="Возможности" title="Что внутри" sub="Каждая карточка открывает соответствующий раздел дашборда.">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-divider border border-divider">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {MODULES.map((m, i) => (
-            <a key={m.view} href={appHref(m.view)} className="group bg-bg p-6 flex flex-col gap-3 hover:bg-accent-100">
+            <a key={m.view} href={appHref(m.view)} className="group bg-bg rounded-2xl p-6 flex flex-col gap-3 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg">
               <span className="num text-[13px] text-neutral-600">{String(i + 1).padStart(2, '0')}</span>
               <h3>{m.t}</h3>
               <p className="m-0 text-sm text-neutral-800">{m.d}</p>
-              <span className="mt-auto pt-2 font-heading font-semibold text-accent-700 group-hover:underline">Открыть →</span>
+              <span className="mt-auto pt-2 font-semibold text-brand group-hover:underline">Открыть →</span>
             </a>
           ))}
         </div>
@@ -327,11 +328,11 @@ export default function LandingView() {
         id="effect"
         kicker="Эффект для бизнеса"
         title="Три рычага экономии"
-        sub="Допущения расчёта. Годовой эффект считается по фактическим простоям, браку и недовыпуску двойника — цифры и параметры можно менять в калькуляторе."
+        sub="Допущения расчёта. Годовой эффект считается по фактическим простоям, браку и недовыпуску двойника."
       >
-        <div className="grid md:grid-cols-3 gap-px bg-divider border border-divider">
+        <div className="grid md:grid-cols-3 gap-3">
           {levers.map((l) => (
-            <div key={l.l} className="bg-bg p-6 flex flex-col gap-1">
+            <div key={l.l} className="bg-bg rounded-2xl p-6 flex flex-col gap-1 shadow-[var(--shadow-card)]">
               <span className="num text-[44px] leading-none" style={{ color: S.g.ink }}>{l.v}</span>
               <span className="font-medium">{l.l}</span>
               <span className="text-xs text-neutral-700">{l.n}</span>
@@ -339,7 +340,6 @@ export default function LandingView() {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <a href={appHref('roi')} className="btn btn-primary">Открыть калькулятор ROI</a>
           <span className="text-sm text-neutral-700">Пилот: CAPEX 85 млн ₸, OPEX 20 млн ₸ в год, развёртывание за 4 недели.</span>
         </div>
       </Section>
@@ -351,9 +351,9 @@ export default function LandingView() {
         title="От датчика до решения"
         sub="Телеметрия снимается поверх существующей автоматики, управляющая логика ПЛК не меняется."
       >
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-divider border border-divider">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {ARCH.map((a, i) => (
-            <div key={a.t} className="bg-bg p-5 flex flex-col gap-2">
+            <div key={a.t} className="bg-bg rounded-2xl p-5 flex flex-col gap-2 shadow-[var(--shadow-card)]">
               <span className="num text-[13px] text-neutral-600">{String(i + 1).padStart(2, '0')}{i < ARCH.length - 1 ? ' →' : ''}</span>
               <h4>{a.t}</h4>
               <p className="m-0 text-sm text-neutral-800">{a.d}</p>
@@ -363,7 +363,7 @@ export default function LandingView() {
       </Section>
 
       {/* Финал */}
-      <section className="px-4 md:px-7 py-16 md:py-24 bg-accent-900 text-bg">
+      <section className="px-4 md:px-7 py-16 md:py-24 bg-accent-800 text-bg">
         <div className="max-w-[1180px] mx-auto flex flex-col md:flex-row md:items-end gap-8 justify-between">
           <div className="flex flex-col gap-3 max-w-[640px]">
             <h2 className="text-[34px] md:text-[48px]">Завод уже работает — посмотрите</h2>
