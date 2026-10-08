@@ -6,3 +6,4 @@ from .health import health_router
 from .maintenance import maintenance_router
 from .production import production_router
 from .simulator import simulator_router
+from .whatif import whatif_router

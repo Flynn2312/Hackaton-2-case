@@ -119,6 +119,9 @@ class PlantSimulator:
         self.store = store
         self.hub = hub
         self.rng = rng or random.Random()
+        # Отдельный поток случайностей для брака: тогда в прогнозах сценарий с другим браком
+        # не сдвигает последовательность отказов, и сравнение с базовым прогнозом честное
+        self.qrng = random.Random(self.rng.random())
         self.refs: dict = {}
         self.st: dict = {}
         self.finished_rows: list[tuple[dict, dict]] = []  # итоговые значения закрытых часов, ждут сохранения
@@ -157,6 +160,7 @@ class PlantSimulator:
         """Ключи, появившиеся в состоянии позже (состояние с Render переживает деплой новой версии)."""
         self.st.setdefault("decisions", {})
         self.st.setdefault("mods", {})
+        self.st.setdefault("ai_decisions", True)
 
     async def _fresh_start(self, real_now: datetime) -> None:
         latest = await self.store.latest_shift_end(self.refs["factory_id"])
@@ -393,13 +397,16 @@ class PlantSimulator:
                     scrap_p += boost["extra"]
                     rework_p += boost["extra"] / 2
                 scrap_p *= quality
+                fixed = self._mod("scrap", area, t, None)  # брак задан сценарием What-If
+                if fixed is not None:
+                    scrap_p = fixed
                 h["actual"] += 1
                 stats[f"made:{area}"] += 1
-                if self.rng.random() < scrap_p:
+                if self.qrng.random() < scrap_p:
                     h["scrap"] += 1
                     stats[f"scrap:{area}"] += 1
                     continue
-                if self.rng.random() < rework_p:
+                if self.qrng.random() < rework_p:
                     h["rework"] += 1
                 if nxt:
                     buffers[nxt] += 1
@@ -409,14 +416,17 @@ class PlantSimulator:
                 h["runtime"] += factor
                 stats[f"runtime:{area}"] += factor
 
-    def _mod(self, kind: str, area: str, t: datetime) -> float:
-        """Временный режим участка по решению оператора: множитель темпа (perf), брака (quality) или износа (wear)."""
+    def _mod(self, kind: str, area: str, t: datetime, default: float | None = 1.0) -> float | None:
+        """
+        Временный режим участка (решение оператора или сценарий What-If): множитель темпа (perf),
+        брака (quality), износа (wear) или фиксированная вероятность брака (scrap).
+        """
         mod = self.st["mods"].get(f"{kind}:{area}")
         if not mod:
-            return 1.0
+            return default
         if parse(mod["until"]) <= t:
             del self.st["mods"][f"{kind}:{area}"]
-            return 1.0
+            return default
         return mod["mul"]
 
     # ---------------------------------------------------------------- оборудование
@@ -483,6 +493,7 @@ class PlantSimulator:
             eq = self.refs["equipment"].get(code)
             if eq and eq["criticality"] == "high":
                 day["crit"][eq["area"]] = day["crit"].get(eq["area"], 0) + 1
+                self.stats["crit_downtime"] += 1
         total = sum(day["crit"].values())
         if total > CRIT_DOWNTIME_LIMIT and not day["limit"]:
             day["limit"] = True
@@ -578,7 +589,7 @@ class PlantSimulator:
         tracker = {"status": "open", "code": code,
                    "next": iso(t + MINUTE * (self.rng.randint(3, 10) if code else self.rng.randint(10, 30)))}
         self.st["incidents"][str(row["id"])] = tracker
-        if self.decisions_enabled and type_ in DECISION_TYPES and area in P.LINE_AREAS:
+        if self.ai_decisions and type_ in DECISION_TYPES and area in P.LINE_AREAS:
             tracker.update(next=None, decision=True)  # ждёт решения оператора
             self.st["decisions"][str(row["id"])] = {"status": "generating", "created": iso(t), "type": type_,
                                                     "area": area, "code": code, "title": title,
@@ -720,6 +731,28 @@ class PlantSimulator:
                         "Выбрано оператором" if by == "operator" else "Время на выбор истекло — применено автоматически",
                         incident_id=inc_id, area_id=self.refs["area_ids"].get(d["area"]), kind="incident")
         return title
+
+    @property
+    def ai_decisions(self) -> bool:
+        """Ждать ли решения оператора: выключатель в панели симуляции (в прогнозе всегда нет)."""
+        return self.decisions_enabled and self.st.get("ai_decisions", True)
+
+    async def set_ai_decisions(self, enabled: bool) -> None:
+        """Выключатель ИИ-решений. При выключении открытые выборы закрываются вариантом «ничего не менять»."""
+        self.st["ai_decisions"] = enabled
+        if enabled:
+            return
+        t = self.now
+        for inc_id, d in list(self.st["decisions"].items()):
+            if d["status"] == "ready":
+                await self.apply_decision(int(inc_id), "none", "auto")
+                continue
+            # Варианты ещё не готовы: решения не будет, инцидент идёт своим ходом — как «ничего не менять»
+            await self._close_decision(int(inc_id), "expired", t)
+            inc = self.st["incidents"].get(inc_id)
+            if inc:
+                inc["next"] = iso(t + MINUTE * self.rng.randint(3, 10))
+        self.decision_requests.clear()
 
     async def _close_decision(self, inc_id: int, status: str, t: datetime, choice: str | None = None,
                               by: str = "auto") -> None:

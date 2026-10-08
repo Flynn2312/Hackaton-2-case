@@ -36,9 +36,11 @@ class MemoryStore:
 
     def __init__(self):
         self.inserts = 0
+        self.counts: dict[str, int] = {}  # сколько строк «вставлено» по таблицам (например, инцидентов)
         self._seq = 10 ** 12
 
     async def insert(self, table: str, row: dict) -> dict:
+        self.counts[table] = self.counts.get(table, 0) + 1
         self._seq += 1
         return {"id": self._seq, **row}
 

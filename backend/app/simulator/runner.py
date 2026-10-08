@@ -205,6 +205,7 @@ class SimulatorRunner:
         return {
             "sim_now": engine.now if engine else None, "speed": self.speed, "running": self.running,
             "buffers": engine.st.get("buffers") if engine else None,
+            "ai_decisions": engine.ai_decisions if engine else None,
         }
 
     # ---------------------------------------------------------------- управление
@@ -224,7 +225,8 @@ class SimulatorRunner:
             return {**base, "active": False, "sim_now": None, "speed": None, "running": False, "started_at": None}
         alive = row["heartbeat_at"] is not None and (datetime.now(TZ) - row["heartbeat_at"]).total_seconds() < 20
         return {**base, "active": alive, "sim_now": row["sim_now"], "speed": row["speed"],
-                "running": row["running"], "started_at": row["started_at"], "buffers": row["state"].get("buffers")}
+                "running": row["running"], "started_at": row["started_at"], "buffers": row["state"].get("buffers"),
+                "ai_decisions": row["state"].get("ai_decisions", True)}
 
     def _require_owner(self) -> PlantSimulator:
         if not (self.is_owner and self.engine):
@@ -245,6 +247,16 @@ class SimulatorRunner:
             await self._save()
         self.hub.publish({"type": "clock", **self._clock()})
 
+    async def set_ai_decisions(self, enabled: bool) -> None:
+        """Включает или выключает варианты решения от ИИ (выключено — по инцидентам «ничего не менять»)."""
+        engine = self._require_owner()
+        if not enabled:
+            self._cancel_decisions()  # не тратим запросы к Claude на варианты, которые никто не увидит
+        async with self.lock:
+            await engine.set_ai_decisions(enabled)
+            await self._save()
+        self.hub.publish({"type": "clock", **self._clock()})
+
     async def inject(self, scenario: str) -> str:
         engine = self._require_owner()
         async with self.lock:
@@ -260,6 +272,7 @@ class SimulatorRunner:
             await self.store.delete_generated(engine.started_at)
             fresh = PlantSimulator(self.store, self.hub)
             await fresh.init(None, datetime.now(TZ))
+            fresh.st["ai_decisions"] = engine.ai_decisions  # выключатель ИИ-решений переживает сброс
             self.engine = fresh
             await self._save()
         self.hub.publish({"type": "reload"})
