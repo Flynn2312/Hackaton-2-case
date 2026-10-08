@@ -197,7 +197,6 @@ export default function WhatIfView({ model, preset }) {
       {/* KILLER FEATURE BANNER СО СЛОГАНОМ ДЛЯ ЗАЩИТЫ ПЕРЕД ЖЮРИ */}
       <Blueprint className="p-4 bg-accent-100/60 border-accent-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🎯</span>
           <div>
             <div className="font-heading font-bold text-lg text-accent-900 tracking-wide">
               «Большинство систем показывают, что уже произошло. Наш цифровой двойник позволяет проверить, что произойдёт дальше».
@@ -211,16 +210,16 @@ export default function WhatIfView({ model, preset }) {
         <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
           <span className="text-xs text-neutral-600 mr-1">Быстрые сценарии:</span>
           <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('paint-defect')}>
-            🚨 Брак окраски
+            Брак окраски
           </button>
           <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('conveyor-break')}>
-            ⚙ Обрыв цепи (55 мин)
+            Обрыв цепи (55 мин)
           </button>
           <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('load-drop')}>
-            📉 Загрузка −15%
+            Загрузка −15%
           </button>
           <button type="button" className="btn btn-primary text-xs px-2.5 py-1" onClick={() => applyPresetScenario('optimal')}>
-            💡 Оптимальный
+            Оптимальный
           </button>
           <button type="button" className="btn btn-ghost text-xs px-2 py-1 text-neutral-600" onClick={() => applyPresetScenario('reset')}>
             Сброс

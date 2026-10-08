@@ -9,7 +9,7 @@ export default function AssistantView({ model, request }) {
   const [msgs, setMsgs] = useState(() => [{ me: false, text: greeting(model), local: true }]);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [ctx, setCtx] = useState(request?.areaId ?? null);
+  const [ctx] = useState(request?.areaId ?? null);
   const modelRef = useRef(model);
   modelRef.current = model;
   const msgsRef = useRef(msgs);
@@ -54,7 +54,6 @@ export default function AssistantView({ model, request }) {
   }, [request]);
 
   const ctxArea = model.areas.find((a) => a.id === ctx);
-  const ctxOpts = [{ id: null, name: 'Вся линия' }, ...model.areas];
   const s = model.stats;
   const lastAi = [...msgs].reverse().find((m) => !m.me);
   const suggestions = lastAi?.followups?.length ? lastAi.followups : presets(model);
@@ -113,37 +112,6 @@ export default function AssistantView({ model, request }) {
       </Blueprint>
 
       <aside className="flex flex-col gap-5">
-        <Blueprint className="p-4 flex flex-col gap-2.5">
-          <h6 className="text-neutral-700">Привязка к участку</h6>
-          <div className="flex flex-wrap gap-1.5">
-            {ctxOpts.map((c) => {
-              const on = ctx === c.id;
-              return (
-                <button
-                  key={c.id ?? 'all'}
-                  type="button"
-                  onClick={() => setCtx(c.id)}
-                  className="px-2.5 py-1 text-xs"
-                  style={{ border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-divider)'}`, background: on ? 'var(--color-accent)' : 'transparent', color: on ? 'var(--color-bg)' : 'var(--color-text)' }}
-                >
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
-        </Blueprint>
-
-        <Blueprint className="p-4 flex flex-col gap-2.5">
-          <h6 className="text-neutral-700">Наряд-заказы</h6>
-          {model.orders.length === 0 && <div className="text-[13px] text-neutral-700">Открытых нарядов нет.</div>}
-          {model.orders.map((o) => (
-            <div key={o.id} className="flex flex-col gap-0.5 pt-2 border-t border-divider">
-              <div className="flex justify-between gap-2 text-[11px] text-neutral-700"><span>{o.id}</span><span style={{ color: o.ink }}>{o.st}</span></div>
-              <div className="text-[13px]">{o.t}</div>
-            </div>
-          ))}
-        </Blueprint>
-
         <Blueprint className="p-4 grid grid-cols-2 gap-2.5">
           <h6 className="col-span-2 text-neutral-700">Данные двойника</h6>
           {[['Участки', s.areas], ['Оборудование', s.equipment], ['Простои', s.downtime], ['Инциденты', s.incidents]].map(([l, v]) => (
