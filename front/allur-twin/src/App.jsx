@@ -64,9 +64,12 @@ export default function App({ initialView = 'flow' }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center gap-5 px-7 h-14 whitespace-nowrap overflow-hidden border-b border-divider">
-        <div className="flex items-baseline gap-2">
-          <a href="#/" className="font-heading font-semibold text-[22px] tracking-[.02em] hover:text-accent-700" title="На главную">ALLUR TWIN</a>
+      <header className="flex items-center gap-6 px-7 h-16 whitespace-nowrap overflow-hidden bg-bg border-b border-divider">
+        <div className="flex items-baseline gap-2.5">
+          <a href="#/" className="flex items-baseline gap-1 leading-none" title="На главную">
+            <span className="font-bold text-[28px] tracking-[-0.05em] text-brand">allur</span>
+            <span className="font-medium text-[17px] tracking-[-0.02em] text-neutral-600">twin</span>
+          </a>
           <span className="text-xs text-neutral-700">{model ? model.factory.location.split(',').pop().trim() : 'Костанай'} · линия 1</span>
         </div>
         <nav className="flex h-full shrink-0">
@@ -75,12 +78,12 @@ export default function App({ initialView = 'flow' }) {
               key={k}
               type="button"
               onClick={() => go(k)}
-              className="h-full flex items-center gap-2 px-4 font-heading font-semibold text-base hover:bg-neutral-200"
-              style={{ borderBottom: `2px solid ${view === k ? 'var(--color-accent)' : 'transparent'}`, color: view === k ? 'var(--color-accent-700)' : 'var(--color-text)' }}
+              className="h-full flex items-center gap-2 px-3.5 text-[14px] font-medium transition-colors hover:text-text"
+              style={{ boxShadow: view === k ? 'inset 0 -2px 0 var(--color-brand)' : undefined, color: view === k ? 'var(--color-text)' : 'var(--color-neutral-600)' }}
             >
               <span>{label}</span>
               {badge?.n > 0 && (
-                <span className="font-body text-[11px] font-medium px-1.5 py-px" style={{ background: S[badge.st].tint, color: S[badge.st].ink }}>{badge.n}</span>
+                <span className="text-[11px] font-semibold min-w-5 h-5 px-1.5 rounded-full grid place-items-center" style={{ background: S[badge.st].tint, color: S[badge.st].ink }}>{badge.n}</span>
               )}
             </button>
           ))}
@@ -97,13 +100,13 @@ export default function App({ initialView = 'flow' }) {
             <button
               type="button"
               onClick={() => (decisionOpen ? setDecisionOpen(false) : openDecision())}
-              className="flex items-center gap-2 px-2.5 py-1.5 font-heading font-semibold text-base text-text hover:bg-neutral-200 shrink-0"
-              style={{ background: decisionOpen ? 'var(--color-accent-100)' : undefined }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-[14px] font-medium text-text bg-surface hover:bg-neutral-300 transition-colors shrink-0"
+              style={{ background: decisionOpen ? 'var(--color-neutral-300)' : undefined }}
               title="Решения по инцидентам: варианты от ИИ"
             >
               Решения
               {model.pendingDecisions.length > 0 && (
-                <span className="font-body text-[11px] font-medium px-1.5 py-px animate-pulse-dot" style={{ background: S.r.tint, color: S.r.ink }}>
+                <span className="text-[11px] font-semibold min-w-5 h-5 px-1.5 rounded-full grid place-items-center text-white bg-brand animate-pulse-dot">
                   {model.pendingDecisions.length}
                 </span>
               )}
@@ -127,12 +130,14 @@ export default function App({ initialView = 'flow' }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] border-b border-divider">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 px-7 pt-5">
             {model.kpis.map((k) => (
-              <div key={k.l} className="px-5 py-3.5 border-r border-divider flex flex-col gap-0.5">
-                <div className="text-[11px] tracking-[.08em] uppercase text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">{k.l}</div>
+              <div key={k.l} className="px-5 py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
+                <div className="flex items-center gap-2 text-[13px] text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: S[k.st].fill }} />{k.l}
+                </div>
                 <div className="flex items-baseline gap-x-2 flex-wrap">
-                  <span className="num whitespace-nowrap text-[30px] leading-[1.1]" style={{ color: S[k.st].ink }}>{k.v}</span>
+                  <span className="num whitespace-nowrap text-[28px] leading-[1.1]" style={{ color: k.st === 'g' ? 'var(--color-text)' : S[k.st].ink }}>{k.v}</span>
                   <span className="text-xs text-neutral-700 whitespace-nowrap">{k.n}</span>
                 </div>
               </div>

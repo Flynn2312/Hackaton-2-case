@@ -18,14 +18,14 @@ export function Blueprint({ as: Tag = 'section', className = '', children, ...re
 
 export function Segmented({ options, value, onChange }) {
   return (
-    <div className="flex border border-divider">
+    <div className="flex p-1 gap-1 bg-surface rounded-[10px]">
       {options.map(([k, label]) => (
         <button
           key={k}
           type="button"
           onClick={() => onChange(k)}
-          className="px-3.5 py-[7px] text-[13px] border-r border-divider last:border-r-0"
-          style={{ background: value === k ? 'var(--color-accent)' : 'transparent', color: value === k ? 'var(--color-bg)' : 'var(--color-text)' }}
+          className="px-3.5 py-[6px] text-[13px] font-medium rounded-lg transition-colors"
+          style={{ background: value === k ? 'var(--color-bg)' : 'transparent', color: value === k ? 'var(--color-text)' : 'var(--color-neutral-600)', boxShadow: value === k ? 'var(--shadow-card)' : undefined }}
         >
           {label}
         </button>
@@ -36,7 +36,7 @@ export function Segmented({ options, value, onChange }) {
 
 export function StatusTag({ st, children }) {
   return (
-    <span className="text-[11px] font-medium px-2 py-0.5 whitespace-nowrap" style={{ background: S[st].tint, color: S[st].ink }}>
+    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: S[st].tint, color: S[st].ink }}>
       {children ?? S[st].l}
     </span>
   );
@@ -58,7 +58,7 @@ export const Legend = () => (
   <div className="flex gap-3.5 text-xs text-neutral-700">
     {['g', 'y', 'r'].map((k) => (
       <span key={k} className="flex items-center gap-1.5">
-        <span className="w-2.5 h-2.5" style={{ background: S[k].fill }} />{S[k].l}
+        <span className="w-2.5 h-2.5 rounded-full" style={{ background: S[k].fill }} />{S[k].l}
       </span>
     ))}
   </div>

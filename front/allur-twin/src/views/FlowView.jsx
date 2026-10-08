@@ -58,12 +58,12 @@ function AreaCard({ a, step, bottleneck, onOpen, onOpenEquipment }) {
     <button
       type="button"
       onClick={() => onOpen(a.id)}
-      className="relative flex-1 min-w-[180px] text-left bg-bg border flex flex-col transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-      style={{ borderColor: a.st === 'g' ? 'var(--color-divider)' : c.fill }}
+      className="relative flex-1 min-w-[180px] text-left bg-bg border rounded-2xl flex flex-col shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      style={{ borderColor: a.st === 'g' ? 'transparent' : c.fill }}
     >
-      <div className="h-1.5" style={{ background: c.fill }} />
+      <div className="h-1.5 rounded-t-2xl" style={{ background: c.fill }} />
       {bottleneck && (
-        <span className="absolute -top-2.5 right-3 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-px bg-accent-800 text-white">узкое место</span>
+        <span className="absolute -top-2.5 right-3 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand text-white">узкое место</span>
       )}
       <div className="px-4 pt-3 pb-3 flex flex-col gap-3 flex-1">
         <div className="flex items-center justify-between gap-2">
