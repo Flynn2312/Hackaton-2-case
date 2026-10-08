@@ -75,4 +75,7 @@ export const api = {
   simPause: () => post('/sim/pause'),
   simResume: () => post('/sim/resume'),
   simReset: () => post('/sim/reset'),
+  simSpeed: (speed) => post('/sim/speed', { speed }),
+  decisions: () => get('/decisions', { limit: 300 }),
+  decide: (incidentId, choice) => post(`/incidents/${incidentId}/decision`, { choice }),
 };

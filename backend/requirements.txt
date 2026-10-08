@@ -3,3 +3,4 @@ uvicorn[standard]==0.54.0
 pydantic-settings==2.15.0
 supabase==2.32.0
 asyncpg==0.31.0
+anthropic==1.12.1

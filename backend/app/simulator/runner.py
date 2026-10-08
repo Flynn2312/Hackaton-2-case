@@ -3,12 +3,15 @@
 
 - Генерирует только один инстанс: право генерировать — аренда в simulator_state (heartbeat раз в несколько секунд).
   Остальные инстансы ждут и забирают аренду, если владелец пропал (деплой, засыпание Render).
-- Темп: speed симуляционных секунд за реальную секунду (60 — минута завода за секунду).
+- Темп: speed симуляционных секунд за реальную секунду (по умолчанию 30 — полминуты завода за секунду,
+  чтобы оператор успевал выбрать вариант решения инцидента).
   Если шаги не успевают (медленная БД), отставание догоняется пачкой шагов.
+- Варианты решения инцидентов готовятся в фоне (прогноз + Claude, advisor.py) и не тормозят шаги симуляции.
 - Текущий час выработки рассылается клиентам каждый шаг, а в БД сохраняется раз в SAVE_EVERY секунд
   и сразу после любых вставок, чтобы состояние движка не расходилось с БД.
 """
 import asyncio
+import copy
 import logging
 import socket
 from datetime import datetime
@@ -16,6 +19,7 @@ from uuid import uuid4
 
 from asyncpg.pool import Pool
 
+from app.simulator.advisor import build_decision
 from app.simulator.engine import SCENARIOS, PlantSimulator
 from app.simulator.hub import EventHub, hub
 from app.simulator.plant import TZ
@@ -27,6 +31,7 @@ SAVE_EVERY = 3.0      # с, сохранение состояния и прод�
 STANDBY_POLL = 10.0   # с, как часто инстанс без аренды пробует её забрать
 RETRY_AFTER = 10.0    # с, пауза после ошибки
 MAX_CATCHUP = 30      # шагов за итерацию при отставании
+DEFAULT_SPEED = 30.0
 
 
 class NotOwnerError(RuntimeError):
@@ -43,8 +48,9 @@ class SimulatorRunner:
         self.lock = asyncio.Lock()
         self.is_owner = False
         self.running = True
-        self.speed = 60.0
+        self.speed = DEFAULT_SPEED
         self.last_error: str | None = None
+        self.decision_tasks: set[asyncio.Task] = set()
         self._saved_inserts = 0
 
     # ---------------------------------------------------------------- жизненный цикл
@@ -58,6 +64,7 @@ class SimulatorRunner:
         logger.info("Симулятор запущен, инстанс %s", self.instance)
 
     async def stop(self) -> None:
+        self._cancel_decisions()
         if self.task:
             self.task.cancel()
             try:
@@ -92,13 +99,14 @@ class SimulatorRunner:
                 self.last_error = f"{type(e).__name__}: {e}"
             self.is_owner = False
             self.engine = None
+            self._cancel_decisions()
             await asyncio.sleep(RETRY_AFTER)
 
     async def _run(self, row: dict) -> None:
         engine = PlantSimulator(self.store, self.hub)
         mode = await engine.init(row.get("state"), datetime.now(TZ))
         self.running = row.get("running", True)
-        self.speed = float(row.get("speed") or 60)
+        self.speed = float(row.get("speed") or DEFAULT_SPEED)
         async with self.lock:
             self.engine = engine
             if not await self._save():
@@ -122,6 +130,7 @@ class SimulatorRunner:
                     await self.engine.step()  # self.engine, а не локальный engine: reset() подменяет движок
                 if steps:
                     self._publish_live()
+                self._spawn_decisions()
                 if now - last_save >= SAVE_EVERY or self.store.inserts != self._saved_inserts:
                     if not await self._save():
                         return
@@ -140,6 +149,50 @@ class SimulatorRunner:
             engine.finished_rows.clear()
             self._saved_inserts = inserts
         return ok
+
+    # ---------------------------------------------------------------- варианты решения инцидентов
+
+    def _spawn_decisions(self) -> None:
+        """Для новых инцидентов запускает генерацию вариантов: снимок состояния берётся в момент инцидента."""
+        engine = self.engine
+        while engine.decision_requests:
+            inc_id = engine.decision_requests.pop(0)
+            if str(inc_id) not in engine.st["decisions"]:
+                continue
+            snapshot = copy.deepcopy(engine.st)
+            candidates = engine.candidate_actions(inc_id)
+            task = asyncio.create_task(self._generate(engine, inc_id, snapshot, candidates),
+                                       name=f"decision-{inc_id}")
+            self.decision_tasks.add(task)
+            task.add_done_callback(self.decision_tasks.discard)
+
+    async def _generate(self, engine: PlantSimulator, inc_id: int, snapshot: dict, candidates: list[str]) -> None:
+        try:
+            payload = await build_decision(snapshot, engine.refs, inc_id, candidates)
+        except Exception:
+            # Инцидент не зависнет: через DECISION_GIVE_UP минут завода он пойдёт своим ходом
+            logger.exception("Варианты решения для инцидента %s не построены", inc_id)
+            return
+        async with self.lock:
+            if self.engine is not engine:  # пока генерировали, симуляцию сбросили или перезапустили
+                return
+            if await engine.decision_ready(inc_id, payload):
+                await self._save()
+        logger.info("Варианты для инцидента %s готовы за %d мс (%s), рекомендовано: %s",
+                    inc_id, payload["generated_ms"], payload["source"], payload["recommended"])
+
+    def _cancel_decisions(self) -> None:
+        for task in list(self.decision_tasks):
+            task.cancel()
+        self.decision_tasks.clear()
+
+    async def decide(self, inc_id: int, choice: str) -> str:
+        """Выбор оператора: «none», «A» или «B»."""
+        engine = self._require_owner()
+        async with self.lock:
+            title = await engine.apply_decision(inc_id, choice, "operator")
+            await self._save()
+        return title
 
     def _publish_live(self) -> None:
         rows = self.engine.current_rows()
@@ -202,6 +255,7 @@ class SimulatorRunner:
     async def reset(self) -> None:
         """Удаляет всё сгенерированное и начинает симуляцию заново с текущего реального момента."""
         engine = self._require_owner()
+        self._cancel_decisions()
         async with self.lock:
             await self.store.delete_generated(engine.started_at)
             fresh = PlantSimulator(self.store, self.hub)

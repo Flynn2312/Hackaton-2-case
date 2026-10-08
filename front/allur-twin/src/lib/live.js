@@ -16,6 +16,7 @@ const MAX_NOTICES = 4;
 const TABLES = {
   equipment: 'equipment', downtime_events: 'downtime', incidents: 'incidents', shifts: 'shifts',
   production_plans: 'plans', production_records: 'records', quality_records: 'quality',
+  incident_decisions: 'decisions',
 };
 
 function upsert(list, rows) {
@@ -132,7 +133,7 @@ export function useLiveTwin() {
         case 'upsert': {
           const key = TABLES[msg.table];
           if (key && rawRef.current) {
-            rawRef.current = { ...rawRef.current, [key]: upsert(rawRef.current[key], msg.rows) };
+            rawRef.current = { ...rawRef.current, [key]: upsert(rawRef.current[key] ?? [], msg.rows) };
             scheduleRebuild();
           }
           break;
