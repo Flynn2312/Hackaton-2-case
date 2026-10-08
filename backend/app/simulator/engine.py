@@ -17,7 +17,7 @@
 """
 import logging
 import random
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -56,6 +56,51 @@ SCENARIOS = {
     "safety": {"title": "Нарушение техники безопасности"},
 }
 
+# ---------------------------------------------------------------- решения по инцидентам
+# По этим инцидентам оператор выбирает «ничего не менять», вариант A или Б (варианты готовит ИИ — advisor.py).
+# Только для участков линии: там у действия есть измеримый эффект на выпуск, брак и простой.
+DECISION_TYPES = {"equipment_failure", "material_shortage", "quality_deviation", "downtime_limit"}
+DECISION_WINDOW = 30   # мин завода на выбор после появления вариантов, затем применяется «ничего не менять»
+DECISION_GIVE_UP = 90  # мин завода: варианты так и не появились — инцидент идёт своим ходом
+CHOICES = ("none", "A", "B")
+
+# Действия, которые движок умеет применить. Варианты A и Б — два действия из подходящих к инциденту.
+# cost — прямые затраты на меру, ₸ (допущение команды, как и прочие экономические параметры)
+ACTIONS = {
+    "emergency_crew": {
+        "types": {"equipment_failure"}, "cost": 180_000, "title": "Вызвать аварийную бригаду",
+        "effect": "Вторая ремонтная бригада: оставшееся время ремонта сокращается примерно вдвое."},
+    "replace_module": {
+        "types": {"equipment_failure"}, "cost": 650_000, "title": "Заменить узел из ЗИП",
+        "effect": "Неисправный узел меняется на новый со склада запчастей: ремонт около 20 мин, "
+                  "износ единицы обнуляется, новый узел изнашивается медленнее."},
+    "redistribute": {
+        "types": {"equipment_failure"}, "cost": 60_000, "title": "Перераспределить нагрузку",
+        "effect": "Поток переводится на соседние единицы участка: участок работает примерно на 60% мощности, "
+                  "ремонт идёт на 15% дольше (часть людей занята перенастройкой)."},
+    "expedite_delivery": {
+        "types": {"material_shortage"}, "cost": 250_000, "title": "Срочная доставка спецрейсом",
+        "effect": "Комплектующие доставляются спецрейсом: оставшийся простой сокращается примерно втрое."},
+    "resequence": {
+        "types": {"material_shortage"}, "cost": 40_000, "title": "Перестроить очередь моделей",
+        "effect": "Сборка переключается на модели, комплектующие которых есть на складе: "
+                  "участок работает примерно на 65% мощности до поставки."},
+    "recalibrate": {
+        "types": {"quality_deviation"}, "cost": 30_000, "title": "Остановить и перекалибровать",
+        "effect": "Ключевая единица участка останавливается на 15 мин для перекалибровки: отклонение устраняется, "
+                  "износ единицы сбрасывается, следующие 4 ч брак примерно на 40% ниже."},
+    "slow_inspect": {
+        "types": {"quality_deviation"}, "cost": 50_000, "title": "Снизить темп и усилить контроль",
+        "effect": "Темп участка −10% на 2 ч и сплошной контроль: брак примерно вдвое ниже, линия не останавливается."},
+    "preventive_to": {
+        "types": {"downtime_limit"}, "cost": 40_000, "title": "Внеплановое ТО изношенной единицы",
+        "effect": "Самая изношенная критичная единица участка уходит на ТО на 30 мин сейчас: "
+                  "износ сбрасывается, риск следующего отказа ниже."},
+    "gentle_mode": {
+        "types": {"downtime_limit"}, "cost": 0, "title": "Щадящий режим на 4 часа",
+        "effect": "Темп участка −7% на 4 ч: износ и частота отказов критичного оборудования участка примерно вдвое ниже."},
+}
+
 
 def iso(dt: datetime) -> str:
     return dt.astimezone(P.TZ).isoformat()
@@ -77,6 +122,9 @@ class PlantSimulator:
         self.refs: dict = {}
         self.st: dict = {}
         self.finished_rows: list[tuple[dict, dict]] = []  # итоговые значения закрытых часов, ждут сохранения
+        self.decisions_enabled = True     # в прогнозе (forecast.py) инциденты не ждут решения оператора
+        self.decision_requests: list[int] = []  # инциденты, для которых нужно сгенерировать варианты
+        self.stats: defaultdict[str, float] = defaultdict(float)  # накопленные показатели — для прогноза
 
     # ---------------------------------------------------------------- запуск
 
@@ -97,10 +145,18 @@ class PlantSimulator:
         shift = st.get("shift")
         if st.get("version") == STATE_VERSION and (shift is None or await self.store.shift_exists(shift["id"])):
             self.st = st
+            self._ensure_state()
             await self._adopt_orphans(self.now)
+            # Варианты, которые не успели сгенерировать до перезапуска, генерируем заново
+            self.decision_requests = [int(k) for k, d in self.st["decisions"].items() if d["status"] == "generating"]
             return "resumed"
         await self._fresh_start(real_now)
         return "fresh"
+
+    def _ensure_state(self) -> None:
+        """Ключи, появившиеся в состоянии позже (состояние с Render переживает деплой новой версии)."""
+        self.st.setdefault("decisions", {})
+        self.st.setdefault("mods", {})
 
     async def _fresh_start(self, real_now: datetime) -> None:
         latest = await self.store.latest_shift_end(self.refs["factory_id"])
@@ -117,7 +173,7 @@ class PlantSimulator:
             "wear": {c: {"w": round(rng.uniform(0, 0.5), 4), "rate": WEAR_RATE * rng.uniform(0.5, 1.5)}
                      for c in self.codes},
             "status": {c: e["status"] for c, e in self.refs["equipment"].items()},
-            "downtime": {}, "pending": [], "incidents": {}, "boost": {},
+            "downtime": {}, "pending": [], "incidents": {}, "boost": {}, "decisions": {}, "mods": {},
         }
         await self._adopt_orphans(start)
         # Оборудование не в работе без открытого простоя (статус из сида) — вернётся в строй в первые минуты
@@ -299,13 +355,13 @@ class PlantSimulator:
     # ---------------------------------------------------------------- выработка
 
     def _produce(self, t: datetime) -> None:
-        hour, buffers, progress = self.st["hour"], self.st["buffers"], self.st["progress"]
+        hour, buffers, progress, stats = self.st["hour"], self.st["buffers"], self.st["progress"], self.stats
         stop = {a: 0.0 for a in P.LINE_AREAS}
         for code, d in self.st["downtime"].items():
             eq = self.refs["equipment"].get(code)
             if eq and eq["area"] in stop and parse(d["start"]) <= t:
-                weight = 1.0 if d["type"] == "material_shortage" else P.CRIT_WEIGHT[eq["criticality"]]
-                stop[eq["area"]] = max(stop[eq["area"]], weight)
+                default = 1.0 if d["type"] == "material_shortage" else P.CRIT_WEIGHT[eq["criticality"]]
+                stop[eq["area"]] = max(stop[eq["area"]], d.get("weight", default))  # weight — решение оператора
 
         cab_wear = max((w["w"] for c, w in self.st["wear"].items() if c.startswith("PNT-CAB")), default=0)
         for idx, area in enumerate(P.LINE_AREAS):
@@ -313,11 +369,13 @@ class PlantSimulator:
             if h is None:
                 continue
             h["minutes"] += 1
+            stats[f"minutes:{area}"] += 1
             factor = 1.0 - stop[area]
             if factor <= 0:
                 continue
             nxt = P.LINE_AREAS[idx + 1] if idx + 1 < len(P.LINE_AREAS) else None
-            progress[area] += P.HOURLY_PLAN / 60 * h["perf"] * factor
+            progress[area] += P.HOURLY_PLAN / 60 * h["perf"] * factor * self._mod("perf", area, t)
+            quality = self._mod("quality", area, t)
             blocked = False
             while progress[area] >= 1:
                 if (area in buffers and buffers[area] < 1) or (nxt and buffers[nxt] >= P.MAX_BUFFER):
@@ -334,16 +392,32 @@ class PlantSimulator:
                 if boost and parse(boost["until"]) > t:
                     scrap_p += boost["extra"]
                     rework_p += boost["extra"] / 2
+                scrap_p *= quality
                 h["actual"] += 1
+                stats[f"made:{area}"] += 1
                 if self.rng.random() < scrap_p:
                     h["scrap"] += 1
+                    stats[f"scrap:{area}"] += 1
                     continue
                 if self.rng.random() < rework_p:
                     h["rework"] += 1
                 if nxt:
                     buffers[nxt] += 1
+                else:
+                    stats["line_out"] += 1  # годный автомобиль после ОТК
             if not blocked:
                 h["runtime"] += factor
+                stats[f"runtime:{area}"] += factor
+
+    def _mod(self, kind: str, area: str, t: datetime) -> float:
+        """Временный режим участка по решению оператора: множитель темпа (perf), брака (quality) или износа (wear)."""
+        mod = self.st["mods"].get(f"{kind}:{area}")
+        if not mod:
+            return 1.0
+        if parse(mod["until"]) <= t:
+            del self.st["mods"][f"{kind}:{area}"]
+            return 1.0
+        return mod["mul"]
 
     # ---------------------------------------------------------------- оборудование
 
@@ -352,14 +426,15 @@ class PlantSimulator:
         for code in self.codes:
             if code in self.st["downtime"]:
                 continue
-            _, _, _, _, kind, rate = P.EQUIPMENT_BY_CODE[code]
+            area, _, _, _, kind, rate = P.EQUIPMENT_BY_CODE[code]
+            gentle = self._mod("wear", area, t)
             wear = self.st["wear"][code]
-            wear["w"] = round(wear["w"] + wear["rate"] * rng.uniform(0.5, 1.5), 6)
+            wear["w"] = round(wear["w"] + wear["rate"] * gentle * rng.uniform(0.5, 1.5), 6)
             if wear["w"] >= 1:
                 reason, type_, lo, hi, _ = P.major_reason(kind)
                 await self._start_downtime(code, reason, type_, rng.randint(lo, hi), t, major=True)
                 continue
-            if rng.random() < rate * ACTIVITY * (1 + 4 * wear["w"] ** 3) / P.SHIFT_MINUTES:
+            if rng.random() < rate * ACTIVITY * gentle * (1 + 4 * wear["w"] ** 3) / P.SHIFT_MINUTES:
                 if wear["w"] > 0.35 and rng.random() < 0.6:
                     reason, type_, lo, hi, _ = rng.choice(P.micro_reasons(kind, code))
                 else:
@@ -435,9 +510,14 @@ class PlantSimulator:
                     wear["w"], wear["rate"] = 0.0, WEAR_RATE * self.rng.uniform(0.5, 1.5)
                 elif d["type"] == "breakdown":
                     wear["w"] = round(wear["w"] * 0.7, 6)
-            for inc in self.st["incidents"].values():
-                if inc.get("code") == code and inc.get("wait"):
+            for inc_id, inc in list(self.st["incidents"].items()):
+                if inc.get("code") != code:
+                    continue
+                if inc.get("wait"):
                     inc["wait"] = False
+                    inc["next"] = iso(end + MINUTE * self.rng.randint(2, 10))
+                elif inc.get("decision"):  # оборудование заработало раньше, чем выбрали решение
+                    await self._close_decision(int(inc_id), "expired", t)
                     inc["next"] = iso(end + MINUTE * self.rng.randint(2, 10))
             eq = self.refs["equipment"].get(code)
             if d["id"] and eq and (d.get("major") or eq["criticality"] == "high"):
@@ -459,6 +539,16 @@ class PlantSimulator:
         for area, boost in list(self.st["boost"].items()):
             if parse(boost["until"]) <= t:
                 del self.st["boost"][area]
+
+        # Решения: оператор не успел — «ничего не менять»; варианты так и не появились — инцидент идёт своим ходом
+        for inc_id, d in list(self.st["decisions"].items()):
+            if d["status"] == "ready" and parse(d["deadline"]) <= t:
+                await self.apply_decision(int(inc_id), "none", "auto")
+            elif d["status"] == "generating" and t - parse(d["created"]) >= MINUTE * DECISION_GIVE_UP:
+                await self._close_decision(int(inc_id), "expired", t)
+                inc = self.st["incidents"].get(inc_id)
+                if inc:
+                    inc["next"] = iso(t + MINUTE * self.rng.randint(3, 10))
 
     async def _downtime_incident(self, t: datetime, code: str, minutes: int) -> None:
         eq = self.refs["equipment"][code]
@@ -485,9 +575,18 @@ class PlantSimulator:
         self.hub.upsert("incidents", row)
         self.hub.notice(SEVERITY_LEVEL[severity], title, description, incident_id=row["id"],
                         area_id=row["production_area_id"], kind="incident")
-        self.st["incidents"][str(row["id"])] = {
-            "status": "open", "code": code,
-            "next": iso(t + MINUTE * (self.rng.randint(3, 10) if code else self.rng.randint(10, 30)))}
+        tracker = {"status": "open", "code": code,
+                   "next": iso(t + MINUTE * (self.rng.randint(3, 10) if code else self.rng.randint(10, 30)))}
+        self.st["incidents"][str(row["id"])] = tracker
+        if self.decisions_enabled and type_ in DECISION_TYPES and area in P.LINE_AREAS:
+            tracker.update(next=None, decision=True)  # ждёт решения оператора
+            self.st["decisions"][str(row["id"])] = {"status": "generating", "created": iso(t), "type": type_,
+                                                    "area": area, "code": code, "title": title,
+                                                    "severity": severity, "description": description}
+            decision = await self.store.insert("incident_decisions", {
+                "id": row["id"], "status": "generating", "created_at": t})
+            self.hub.upsert("incident_decisions", decision)
+            self.decision_requests.append(row["id"])
 
     async def _advance_incident(self, inc_id: int, inc: dict, t: datetime) -> None:
         rng = self.rng
@@ -514,6 +613,125 @@ class PlantSimulator:
         area = self.rng.choice([a for a in P.AREA_NAMES if a in self.refs["area_ids"]])
         await self._incident(t, area, "safety", self.rng.choice(["low", "medium"]), title,
                              f"{description} Участок «{P.AREA_NAMES[area]}».")
+
+    # ---------------------------------------------------------------- решения по инцидентам
+
+    def candidate_actions(self, inc_id: int) -> list[str]:
+        """Действия, применимые к инциденту прямо сейчас (из них ИИ выбирает варианты A и Б)."""
+        d = self.st["decisions"][str(inc_id)]
+        out = [a for a, spec in ACTIONS.items() if d["type"] in spec["types"]]
+        eq = self.refs["equipment"].get(d.get("code") or "")
+        if "redistribute" in out and (not eq or eq["criticality"] == "low"):
+            out.remove("redistribute")
+        if "preventive_to" in out and not self._maintenance_target(d["area"]):
+            out.remove("preventive_to")
+        return out
+
+    def _maintenance_target(self, area: str) -> str | None:
+        """Самая изношенная работающая критичная единица участка — кандидат на ТО или перекалибровку."""
+        options = [c for c in self.codes if P.EQUIPMENT_BY_CODE[c][0] == area and c not in self.st["downtime"]
+                   and self.refs["equipment"][c]["criticality"] != "low"]
+        return max(options, key=lambda c: self.st["wear"][c]["w"], default=None)
+
+    async def apply_action(self, action: str, inc_id: int, t: datetime) -> None:
+        """Применяет действие к состоянию завода. Используется и в живой симуляции, и в прогнозе вариантов."""
+        d = self.st["decisions"][str(inc_id)]
+        area, code = d["area"], d.get("code")
+        down = self.st["downtime"].get(code) if code else None
+        mods = self.st["mods"]
+
+        def shorten(factor: float, floor: int = 5) -> None:
+            remaining = parse(down["end"]) - t
+            down["end"] = iso(t + max(MINUTE * floor, remaining * factor))
+
+        if action == "emergency_crew" and down:
+            shorten(0.5)
+        elif action == "replace_module":
+            if down:
+                down["end"] = iso(min(parse(down["end"]), t + MINUTE * 20))
+                down["major"] = True  # после ремонта износ обнулится
+            if code in self.st["wear"]:
+                self.st["wear"][code]["rate"] *= 0.6
+        elif action == "redistribute" and down:
+            down["weight"] = 0.4
+            shorten(1.15)
+        elif action == "expedite_delivery" and down:
+            shorten(0.35)
+        elif action == "resequence" and down:
+            down["weight"] = 0.35
+        elif action == "recalibrate":
+            self.st["boost"].pop(area, None)
+            target = self._maintenance_target(area)
+            if target:
+                await self._start_downtime(target, "Перекалибровка по решению оператора", "planned_maintenance", 15, t)
+            mods[f"quality:{area}"] = {"mul": 0.6, "until": iso(t + HOUR * 4)}
+        elif action == "slow_inspect":
+            mods[f"perf:{area}"] = {"mul": 0.9, "until": iso(t + HOUR * 2)}
+            mods[f"quality:{area}"] = {"mul": 0.5, "until": iso(t + HOUR * 2)}
+        elif action == "preventive_to":
+            target = self._maintenance_target(area)
+            if target:
+                await self._start_downtime(target, "Внеплановое ТО по решению оператора", "planned_maintenance", 30, t)
+        elif action == "gentle_mode":
+            mods[f"perf:{area}"] = {"mul": 0.93, "until": iso(t + HOUR * 4)}
+            mods[f"wear:{area}"] = {"mul": 0.4, "until": iso(t + HOUR * 4)}
+
+    async def decision_ready(self, inc_id: int, payload: dict) -> bool:
+        """Варианты сгенерированы: показываем оператору и запускаем отсчёт до автоматического «ничего не менять»."""
+        d = self.st["decisions"].get(str(inc_id))
+        if not d or d["status"] != "generating":
+            return False
+        deadline = self.now + MINUTE * DECISION_WINDOW
+        d.update(status="ready", deadline=iso(deadline),
+                 actions={o["key"]: o["action"] for o in payload["options"]})
+        row = await self.store.update("incident_decisions", inc_id, {
+            "status": "ready", "payload": payload, "recommended": payload["recommended"],
+            "source": payload["source"], "deadline_at": deadline})
+        self.hub.upsert("incident_decisions", row)
+        self.hub.notice("y", "Нужно решение оператора", payload.get("incident_title", ""),
+                        incident_id=inc_id, area_id=self.refs["area_ids"].get(d["area"]), kind="decision")
+        return True
+
+    async def apply_decision(self, inc_id: int, choice: str, by: str) -> str:
+        """Применяет выбранный вариант (оператор или автоматически по истечении времени)."""
+        d = self.st["decisions"].get(str(inc_id))
+        if not d or d["status"] != "ready":
+            raise ValueError("Решение по этому инциденту уже принято или варианты ещё не готовы")
+        if choice not in CHOICES:
+            raise ValueError(f"Вариант должен быть одним из: {', '.join(CHOICES)}")
+        t = self.now
+        action = d["actions"][choice]
+        if action != "none":
+            await self.apply_action(action, inc_id, t)
+        await self._close_decision(inc_id, "applied", t, choice=choice, by=by)
+
+        # Инцидент — в работу; закроется, когда закончится простой (или через обычное время для прочих)
+        inc = self.st["incidents"].get(str(inc_id))
+        if inc and inc["status"] == "open":
+            inc["status"] = "in_progress"
+            if inc.get("code") in self.st["downtime"]:
+                inc["wait"], inc["next"] = True, None
+            else:
+                inc["next"] = iso(t + MINUTE * (self.rng.randint(2, 10) if inc.get("code") else self.rng.randint(60, 180)))
+            self.hub.upsert("incidents", await self.store.update("incidents", inc_id, {"status": "in_progress"}))
+        title = ACTIONS[action]["title"] if action != "none" else "Ничего не менять"
+        self.hub.notice("g" if action != "none" else "n",
+                        f"Решение применено: {title}",
+                        "Выбрано оператором" if by == "operator" else "Время на выбор истекло — применено автоматически",
+                        incident_id=inc_id, area_id=self.refs["area_ids"].get(d["area"]), kind="incident")
+        return title
+
+    async def _close_decision(self, inc_id: int, status: str, t: datetime, choice: str | None = None,
+                              by: str = "auto") -> None:
+        self.st["decisions"].pop(str(inc_id), None)
+        inc = self.st["incidents"].get(str(inc_id))
+        if inc:
+            inc.pop("decision", None)
+        fields = {"status": status, "decided_at": t, "decided_by": by}
+        if choice:
+            fields["chosen"] = choice
+        row = await self.store.update("incident_decisions", inc_id, fields)
+        self.hub.upsert("incident_decisions", row)
 
     # ---------------------------------------------------------------- ручные сценарии
 

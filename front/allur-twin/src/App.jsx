@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLiveTwin } from './lib/live';
 import { S } from './lib/format';
 import FlowView from './views/FlowView';
@@ -11,6 +11,7 @@ import AreaDrawer from './components/AreaDrawer';
 import EquipmentPassportModal from './components/EquipmentPassportModal';
 import SimControl from './components/SimControl';
 import Toasts from './components/Toasts';
+import DecisionPanel from './components/DecisionPanel';
 
 export default function App() {
   const { model, error, loading, reload, connected, sim, simNow, notices, dismissNotice, control } = useLiveTwin();
@@ -20,11 +21,28 @@ export default function App() {
   const [whatIf, setWhatIf] = useState(null);
   const [chatRequest, setChatRequest] = useState(null);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
+  const [decisionOpen, setDecisionOpen] = useState(false);
+  const [decisionId, setDecisionId] = useState(null);
+  const seenDecisions = useRef(new Set());
+
+  const openDecision = (id = null) => { setDecisionId(id); setDecisionOpen(true); };
+
+  // Новый инцидент, требующий решения, — сразу открываем панель с вариантами
+  const pendingIds = model?.pendingDecisions.map((d) => d.id).join(',') ?? '';
+  useEffect(() => {
+    if (!pendingIds) return;
+    const fresh = pendingIds.split(',').map(Number).filter((id) => !seenDecisions.current.has(id));
+    if (!fresh.length) return;
+    fresh.forEach((id) => seenDecisions.current.add(id));
+    setDecisionOpen(true);
+    setDecisionId((cur) => (cur != null && pendingIds.split(',').map(Number).includes(cur) ? cur : fresh[0]));
+  }, [pendingIds]);
 
   const go = (v) => { setView(v); setSel(null); setLogArea(null); };
   // Клик по уведомлению: инцидент — в журнал участка, событие оборудования — карточка участка
   const openNotice = (n) => {
-    if (n.kind === 'incident') { setView('log'); setSel(null); setLogArea(n.area_id ?? null); }
+    if (n.kind === 'decision' || (n.kind === 'incident' && model?.pendingDecisions.some((d) => d.id === n.incident_id))) openDecision(n.incident_id);
+    else if (n.kind === 'incident') { setView('log'); setSel(null); setLogArea(n.area_id ?? null); }
     else if (n.area_id != null) { setView('flow'); setLogArea(null); setSel(n.area_id); }
   };
   const riskCount = model ? model.alerts.filter((a) => a.st === 'r').length : 0;
@@ -71,6 +89,22 @@ export default function App() {
             </span>
             <span className="overflow-hidden text-ellipsis">{model?.lastShiftLabel ?? 'загрузка смены…'}</span>
           </span>
+          {model && (
+            <button
+              type="button"
+              onClick={() => (decisionOpen ? setDecisionOpen(false) : openDecision())}
+              className="flex items-center gap-2 px-2.5 py-1.5 font-heading font-semibold text-base text-text hover:bg-neutral-200 shrink-0"
+              style={{ background: decisionOpen ? 'var(--color-accent-100)' : undefined }}
+              title="Решения по инцидентам: варианты от ИИ"
+            >
+              Решения
+              {model.pendingDecisions.length > 0 && (
+                <span className="font-body text-[11px] font-medium px-1.5 py-px animate-pulse-dot" style={{ background: S.r.tint, color: S.r.ink }}>
+                  {model.pendingDecisions.length}
+                </span>
+              )}
+            </button>
+          )}
           <SimControl sim={sim} connected={connected} simNow={simNow} control={control} />
         </div>
       </header>
@@ -117,7 +151,7 @@ export default function App() {
             />
           )}
           {view === 'roi' && <RoiView model={model} />}
-          {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} />}
+          {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
           {view === 'chat' && <CopilotView model={model} request={chatRequest} />}
 
           {selArea && (
@@ -146,6 +180,17 @@ export default function App() {
             />
           )}
         </>
+      )}
+
+      {model && decisionOpen && (
+        <DecisionPanel
+          model={model}
+          sim={sim}
+          simNow={simNow}
+          selectedId={decisionId}
+          onSelect={setDecisionId}
+          onClose={() => setDecisionOpen(false)}
+        />
       )}
 
       <Toasts notices={notices} onDismiss={dismissNotice} onOpen={openNotice} />
