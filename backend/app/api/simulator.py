@@ -12,6 +12,10 @@ class SpeedRequest(BaseModel):
     speed: float = Field(..., ge=1, le=3600, description="Симуляционных секунд за реальную секунду (60 — минута завода за секунду)")
 
 
+class AiDecisionsRequest(BaseModel):
+    enabled: bool = Field(..., description="true — ИИ предлагает варианты решения инцидентов, false — «ничего не менять»")
+
+
 class InjectRequest(BaseModel):
     scenario: str = Field(..., description=f"Один из: {', '.join(SCENARIOS)}")
 
@@ -45,6 +49,12 @@ async def resume():
 @simulator_router.post("/speed")
 async def set_speed(body: SpeedRequest):
     return await _control(runner.set_speed(body.speed))
+
+
+@simulator_router.post("/ai-decisions")
+async def set_ai_decisions(body: AiDecisionsRequest):
+    """Выключатель ИИ-решений: выключено — инциденты не ждут выбора оператора, применяется «ничего не менять»"""
+    return await _control(runner.set_ai_decisions(body.enabled))
 
 
 @simulator_router.post("/inject")

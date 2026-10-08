@@ -157,6 +157,7 @@ class PlantSimulator:
         """Ключи, появившиеся в состоянии позже (состояние с Render переживает деплой новой версии)."""
         self.st.setdefault("decisions", {})
         self.st.setdefault("mods", {})
+        self.st.setdefault("ai_decisions", True)
 
     async def _fresh_start(self, real_now: datetime) -> None:
         latest = await self.store.latest_shift_end(self.refs["factory_id"])
@@ -578,7 +579,7 @@ class PlantSimulator:
         tracker = {"status": "open", "code": code,
                    "next": iso(t + MINUTE * (self.rng.randint(3, 10) if code else self.rng.randint(10, 30)))}
         self.st["incidents"][str(row["id"])] = tracker
-        if self.decisions_enabled and type_ in DECISION_TYPES and area in P.LINE_AREAS:
+        if self.ai_decisions and type_ in DECISION_TYPES and area in P.LINE_AREAS:
             tracker.update(next=None, decision=True)  # ждёт решения оператора
             self.st["decisions"][str(row["id"])] = {"status": "generating", "created": iso(t), "type": type_,
                                                     "area": area, "code": code, "title": title,
@@ -720,6 +721,28 @@ class PlantSimulator:
                         "Выбрано оператором" if by == "operator" else "Время на выбор истекло — применено автоматически",
                         incident_id=inc_id, area_id=self.refs["area_ids"].get(d["area"]), kind="incident")
         return title
+
+    @property
+    def ai_decisions(self) -> bool:
+        """Ждать ли решения оператора: выключатель в панели симуляции (в прогнозе всегда нет)."""
+        return self.decisions_enabled and self.st.get("ai_decisions", True)
+
+    async def set_ai_decisions(self, enabled: bool) -> None:
+        """Выключатель ИИ-решений. При выключении открытые выборы закрываются вариантом «ничего не менять»."""
+        self.st["ai_decisions"] = enabled
+        if enabled:
+            return
+        t = self.now
+        for inc_id, d in list(self.st["decisions"].items()):
+            if d["status"] == "ready":
+                await self.apply_decision(int(inc_id), "none", "auto")
+                continue
+            # Варианты ещё не готовы: решения не будет, инцидент идёт своим ходом — как «ничего не менять»
+            await self._close_decision(int(inc_id), "expired", t)
+            inc = self.st["incidents"].get(inc_id)
+            if inc:
+                inc["next"] = iso(t + MINUTE * self.rng.randint(3, 10))
+        self.decision_requests.clear()
 
     async def _close_decision(self, inc_id: int, status: str, t: datetime, choice: str | None = None,
                               by: str = "auto") -> None:

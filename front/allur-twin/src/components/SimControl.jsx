@@ -37,6 +37,7 @@ export default function SimControl({ sim, connected, simNow, control }) {
   }, [open]);
 
   const live = connected && sim?.active && sim?.running;
+  const aiOn = sim?.ai_decisions !== false;
   const st = live ? 'g' : sim?.active ? 'y' : null;
   const state = !sim?.sim_now ? 'симуляция не запущена'
     : !connected ? 'нет связи с потоком'
@@ -84,6 +85,28 @@ export default function SimControl({ sim, connected, simNow, control }) {
               Генератор пишет в БД смены, выработку, простои и инциденты. 1 секунда = {sim?.speed ? Math.round(sim.speed) : 30} с заводского времени; ночи и выходные пропускаются.
             </div>
           </div>
+
+          <label className={`flex items-start gap-3 ${!sim?.active || busy ? 'opacity-45' : 'cursor-pointer'}`}>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiOn}
+              disabled={!!busy || !sim?.active}
+              onClick={() => run('ai', (a) => a.simAiDecisions(!aiOn))}
+              className="relative shrink-0 w-10 h-[22px] rounded-full mt-0.5 transition-colors"
+              style={{ background: aiOn ? 'var(--color-accent)' : 'var(--color-neutral-400)' }}
+            >
+              <span className="absolute top-[3px] w-4 h-4 rounded-full bg-bg transition-[left]" style={{ left: aiOn ? 21 : 3 }} />
+            </button>
+            <span className="flex flex-col">
+              <span className="font-medium text-sm">ИИ-решения по инцидентам</span>
+              <span className="text-xs text-neutral-700">
+                {aiOn
+                  ? 'Включено: при инциденте ИИ предлагает варианты A и Б, оператор выбирает.'
+                  : 'Выключено: варианты не готовятся, по инцидентам автоматически «ничего не менять».'}
+              </span>
+            </span>
+          </label>
 
           <div className="flex flex-col gap-1.5">
             <div className="text-[11px] tracking-[.08em] uppercase text-neutral-700">Скорость</div>
