@@ -119,6 +119,9 @@ class PlantSimulator:
         self.store = store
         self.hub = hub
         self.rng = rng or random.Random()
+        # Отдельный поток случайностей для брака: тогда в прогнозах сценарий с другим браком
+        # не сдвигает последовательность отказов, и сравнение с базовым прогнозом честное
+        self.qrng = random.Random(self.rng.random())
         self.refs: dict = {}
         self.st: dict = {}
         self.finished_rows: list[tuple[dict, dict]] = []  # итоговые значения закрытых часов, ждут сохранения
@@ -394,13 +397,16 @@ class PlantSimulator:
                     scrap_p += boost["extra"]
                     rework_p += boost["extra"] / 2
                 scrap_p *= quality
+                fixed = self._mod("scrap", area, t, None)  # брак задан сценарием What-If
+                if fixed is not None:
+                    scrap_p = fixed
                 h["actual"] += 1
                 stats[f"made:{area}"] += 1
-                if self.rng.random() < scrap_p:
+                if self.qrng.random() < scrap_p:
                     h["scrap"] += 1
                     stats[f"scrap:{area}"] += 1
                     continue
-                if self.rng.random() < rework_p:
+                if self.qrng.random() < rework_p:
                     h["rework"] += 1
                 if nxt:
                     buffers[nxt] += 1
@@ -410,14 +416,17 @@ class PlantSimulator:
                 h["runtime"] += factor
                 stats[f"runtime:{area}"] += factor
 
-    def _mod(self, kind: str, area: str, t: datetime) -> float:
-        """Временный режим участка по решению оператора: множитель темпа (perf), брака (quality) или износа (wear)."""
+    def _mod(self, kind: str, area: str, t: datetime, default: float | None = 1.0) -> float | None:
+        """
+        Временный режим участка (решение оператора или сценарий What-If): множитель темпа (perf),
+        брака (quality), износа (wear) или фиксированная вероятность брака (scrap).
+        """
         mod = self.st["mods"].get(f"{kind}:{area}")
         if not mod:
-            return 1.0
+            return default
         if parse(mod["until"]) <= t:
             del self.st["mods"][f"{kind}:{area}"]
-            return 1.0
+            return default
         return mod["mul"]
 
     # ---------------------------------------------------------------- оборудование
@@ -484,6 +493,7 @@ class PlantSimulator:
             eq = self.refs["equipment"].get(code)
             if eq and eq["criticality"] == "high":
                 day["crit"][eq["area"]] = day["crit"].get(eq["area"], 0) + 1
+                self.stats["crit_downtime"] += 1
         total = sum(day["crit"].values())
         if total > CRIT_DOWNTIME_LIMIT and not day["limit"]:
             day["limit"] = True

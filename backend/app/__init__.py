@@ -13,6 +13,7 @@ from app.api import (
     maintenance_router,
     production_router,
     simulator_router,
+    whatif_router,
 )
 from app.core.config import get_settings
 from app.core.database import db_manager
@@ -60,7 +61,7 @@ def create_app() -> FastAPI:
 
     for r in (
             analytics_router, decisions_router, digital_twin_router, directories_router,
-            health_router, maintenance_router, production_router, simulator_router,
+            health_router, maintenance_router, production_router, simulator_router, whatif_router,
     ):
         app.include_router(r)
 

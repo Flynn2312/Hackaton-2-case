@@ -140,25 +140,29 @@ def _context(snapshot: dict, refs: dict, inc_id: int, candidates: list[str], res
     return ctx
 
 
-async def _ask_claude(context: dict, candidates: list[str]) -> dict | None:
+async def claude_json(system: str, context: dict, schema: dict) -> dict | None:
+    """
+    Запрос к Claude с ответом строго по JSON-схеме. Возвращает разобранный ответ (+ ключ "model")
+    или None, если ключа нет или API недоступен — тогда вызывающий строит ответ резервным алгоритмом.
+    Общий для вариантов решения инцидентов и прогноза What-If.
+    """
     client = _client_or_none()
     if client is None:
         return None
-    model = get_settings().decision_model
     async with _semaphore:
         try:
             response = await client.beta.messages.create(
-                model=model,
+                model=get_settings().decision_model,
                 max_tokens=8000,
                 # Если классификатор безопасности отклонит запрос, API сам повторит его на резервной модели
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
-                output_config={"effort": "medium", "format": {"type": "json_schema", "schema": _schema(candidates)}},
-                system=SYSTEM,
+                output_config={"effort": "medium", "format": {"type": "json_schema", "schema": schema}},
+                system=system,
                 messages=[{"role": "user", "content": json.dumps(context, ensure_ascii=False, indent=1)}],
             )
         except anthropic.RateLimitError:
-            logger.warning("Claude: превышен лимит запросов, варианты строит резервный алгоритм")
+            logger.warning("Claude: превышен лимит запросов, ответ строит резервный алгоритм")
             return None
         except anthropic.APIStatusError as e:
             logger.warning("Claude: ошибка API %s: %s", e.status_code, e.message)
@@ -173,11 +177,18 @@ async def _ask_claude(context: dict, candidates: list[str]) -> dict | None:
     try:
         data = json.loads(text) if text else None
     except json.JSONDecodeError:
-        data = None
-    if not data or data["option_a"]["action"] == data["option_b"]["action"]:
-        logger.warning("Claude: некорректный выбор вариантов, запрос %s", response._request_id)
+        logger.warning("Claude: ответ не JSON, запрос %s", response._request_id)
         return None
-    data["model"] = response.model
+    if data is not None:
+        data["model"] = response.model
+    return data
+
+
+async def _ask_claude(context: dict, candidates: list[str]) -> dict | None:
+    data = await claude_json(SYSTEM, context, _schema(candidates))
+    if data and data["option_a"]["action"] == data["option_b"]["action"]:
+        logger.warning("Claude: в вариантах A и Б одно и то же действие, варианты строит резервный алгоритм")
+        return None
     return data
 
 
