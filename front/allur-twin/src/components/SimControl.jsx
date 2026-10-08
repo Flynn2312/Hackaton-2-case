@@ -4,10 +4,18 @@ import { S, fmtDate, fmtTime } from '../lib/format';
 // Часы завода и панель симуляции: пауза, сценарии-инциденты для демонстрации, сброс к текущей дате
 export default function SimControl({ sim, connected, simNow, control }) {
   const [now, setNow] = useState(() => simNow() ?? Date.now());
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(null); // null — закрыто, иначе позиция окна на экране
   const [busy, setBusy] = useState(null);
   const [msg, setMsg] = useState(null);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
+
+  // Окно позиционируется относительно экрана (fixed): шапка обрезает всё, что выходит за её высоту (overflow-hidden)
+  const toggle = () => {
+    if (open) { setOpen(null); return; }
+    const r = buttonRef.current.getBoundingClientRect();
+    setOpen({ top: r.bottom + 4, right: Math.max(16, window.innerWidth - r.right) });
+  };
 
   useEffect(() => {
     const t = setInterval(() => setNow(simNow() ?? Date.now()), 1000);
@@ -16,9 +24,14 @@ export default function SimControl({ sim, connected, simNow, control }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(null); };
+    const closeOnResize = () => setOpen(null);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('resize', closeOnResize);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('resize', closeOnResize);
+    };
   }, [open]);
 
   const live = connected && sim?.active && sim?.running;
@@ -44,8 +57,10 @@ export default function SimControl({ sim, connected, simNow, control }) {
   return (
     <div ref={ref} className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
+        aria-expanded={!!open}
         className="flex items-center gap-2.5 px-2.5 py-1 hover:bg-neutral-200"
         title="Время завода и управление симуляцией"
       >
@@ -57,7 +72,10 @@ export default function SimControl({ sim, connected, simNow, control }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-40 w-[320px] bg-bg border border-divider shadow-lg p-4 flex flex-col gap-3 whitespace-normal">
+        <div
+          className="fixed z-50 w-[min(320px,calc(100vw-32px))] max-h-[calc(100vh-80px)] overflow-y-auto bg-bg border border-divider shadow-lg p-4 flex flex-col gap-3 whitespace-normal text-text"
+          style={{ top: open.top, right: open.right }}
+        >
           <div>
             <div className="font-heading font-semibold text-lg">Симуляция завода</div>
             <div className="text-xs text-neutral-700">
