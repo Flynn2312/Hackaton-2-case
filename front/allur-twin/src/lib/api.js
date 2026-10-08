@@ -28,6 +28,23 @@ async function get(path, params = {}) {
   }
 }
 
+async function post(path, body) {
+  const res = await fetch(`${BASE}/api${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.detail ?? `${path}: HTTP ${res.status}`);
+  return json?.data ?? json;
+}
+
+// Адрес WebSocket-стрима симулятора: тот же хост, что у API, схема ws/wss
+export function streamUrl() {
+  const origin = BASE || window.location.origin;
+  return `${origin.replace(/^http/, 'ws')}/ws/digital-twin/stream`;
+}
+
 // Списки с пагинацией limit/offset — выкачиваем все страницы
 async function getAll(path, params = {}) {
   const out = [];
@@ -48,8 +65,14 @@ export const api = {
   plans: (factoryId) => getAll('/production-plans', { factory_id: factoryId }),
   productionRecords: (dateFrom, dateTo) => getAll('/production-records', { date_from: dateFrom, date_to: dateTo }),
   qualityRecords: (dateFrom, dateTo) => getAll('/quality-records', { date_from: dateFrom, date_to: dateTo }),
-  downtime: () => getAll('/downtime-events'),
-  incidents: () => getAll('/incidents'),
+  downtime: (dateFrom) => getAll('/downtime-events', { date_from: dateFrom }),
+  activeDowntime: () => getAll('/downtime-events', { active: true }),
+  incidents: (dateFrom) => getAll('/incidents', { date_from: dateFrom }),
   oee: (factoryId, dateFrom, dateTo) => get('/analytics/oee', { factory_id: factoryId, date_from: dateFrom, date_to: dateTo }),
   qualityMetrics: (dateFrom, dateTo) => get('/analytics/quality-metrics', { date_from: dateFrom, date_to: dateTo }),
+  simStatus: () => get('/sim/status'),
+  simInject: (scenario) => post('/sim/inject', { scenario }),
+  simPause: () => post('/sim/pause'),
+  simResume: () => post('/sim/resume'),
+  simReset: () => post('/sim/reset'),
 };

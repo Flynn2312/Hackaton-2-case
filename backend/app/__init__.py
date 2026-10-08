@@ -5,16 +5,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
-    ai_router,
     analytics_router,
     digital_twin_router,
     directories_router,
     health_router,
     maintenance_router,
-    production_router
+    production_router,
+    simulator_router,
 )
 from app.core.config import get_settings
 from app.core.database import db_manager
+from app.simulator.runner import runner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +30,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Инициализация пула соединений с БД...")
     await db_manager.connect()
+    settings = get_settings()
+    if db_manager.pool is not None:
+        runner.attach(db_manager.pool)
+        if settings.simulator_enabled:
+            runner.start()
+        else:
+            logger.info("Симулятор выключен (SIMULATOR_ENABLED=false)")
     yield
+    await runner.stop()
     logger.info("Закрытие соединений с БД...")
     await db_manager.disconnect()
 
@@ -49,23 +58,17 @@ def create_app() -> FastAPI:
     )
 
     for r in (
-            ai_router, analytics_router, digital_twin_router, directories_router,
-            health_router, maintenance_router, production_router
+            analytics_router, digital_twin_router, directories_router,
+            health_router, maintenance_router, production_router, simulator_router,
     ):
         app.include_router(r)
 
-    # Маршруты цифрового двойника и AI-движка для кейса Allur
+    # AI-движок и сценарная аналитика кейса Allur (Copilot, What-If, прогнозы, ROI)
     from app.api.routes import ai as routes_ai
     from app.api.routes import analytics as routes_analytics
-    from app.api.routes import factory as routes_factory
-    from app.api.routes import production as routes_production
-    from app.api.routes import events as routes_events
 
     app.include_router(routes_ai.router)
     app.include_router(routes_analytics.router)
-    app.include_router(routes_factory.router)
-    app.include_router(routes_production.router)
-    app.include_router(routes_events.router)
 
     # Дополнительные префиксы /api для совместимости
     app.include_router(routes_ai.router, prefix="/api")

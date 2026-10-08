@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { loadTwin } from './lib/model';
+import { useState } from 'react';
+import { useLiveTwin } from './lib/live';
 import { S } from './lib/format';
 import FlowView from './views/FlowView';
 import WhatIfView from './views/WhatIfView';
@@ -9,47 +9,11 @@ import IncidentsView from './views/IncidentsView';
 import CopilotView from './views/CopilotView';
 import AreaDrawer from './components/AreaDrawer';
 import EquipmentPassportModal from './components/EquipmentPassportModal';
-
-const REFRESH_MS = 30_000;
-
-function useClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function useTwin() {
-  const [model, setModel] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      setModel(await loadTwin());
-      setError(null);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    reload();
-    const t = setInterval(reload, REFRESH_MS);
-    return () => clearInterval(t);
-  }, [reload]);
-
-  return { model, error, loading, reload };
-}
+import SimControl from './components/SimControl';
+import Toasts from './components/Toasts';
 
 export default function App() {
-  const clock = useClock();
-  const { model, error, loading, reload } = useTwin();
+  const { model, error, loading, reload, connected, sim, simNow, notices, dismissNotice, control } = useLiveTwin();
   const [view, setView] = useState('flow');
   const [sel, setSel] = useState(null);
   const [logArea, setLogArea] = useState(null);
@@ -58,11 +22,17 @@ export default function App() {
   const [selectedEquipment, setSelectedEquipment] = useState(null);
 
   const go = (v) => { setView(v); setSel(null); setLogArea(null); };
+  // Клик по уведомлению: инцидент — в журнал участка, событие оборудования — карточка участка
+  const openNotice = (n) => {
+    if (n.kind === 'incident') { setView('log'); setSel(null); setLogArea(n.area_id ?? null); }
+    else if (n.area_id != null) { setView('flow'); setLogArea(null); setSel(n.area_id); }
+  };
+  const riskCount = model ? model.alerts.filter((a) => a.st === 'r').length : 0;
 
   const nav = [
     ['flow', 'Живой завод', model?.flowBadge],
     ['whatif', 'What-If'],
-    ['airisk', 'AI Risk Center', { n: 2, st: 'r' }],
+    ['airisk', 'AI Risk Center', { n: riskCount, st: 'r' }],
     ['roi', 'Экономика & ROI'],
     ['log', 'Инциденты', model?.incBadge],
     ['chat', 'AI Copilot'],
@@ -96,12 +66,12 @@ export default function App() {
         <div className="ml-auto flex items-center gap-[18px] text-[13px] text-neutral-700 min-w-0">
           <span className="flex items-center gap-[18px] min-w-0 overflow-hidden text-ellipsis">
             <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-[7px] h-[7px] rounded-full animate-pulse-dot" style={{ background: error ? S.r.fill : S.g.fill }} />
+              <span className="w-[7px] h-[7px] rounded-full" style={{ background: error ? S.r.fill : S.g.fill }} />
               {error ? 'API недоступен' : `API · ${model ? model.stats.records.toLocaleString('ru-RU') : '…'} записей`}
             </span>
             <span className="overflow-hidden text-ellipsis">{model?.lastShiftLabel ?? 'загрузка смены…'}</span>
           </span>
-          <span className="num text-xl text-text shrink-0">{clock}</span>
+          <SimControl sim={sim} connected={connected} simNow={simNow} control={control} />
         </div>
       </header>
 
@@ -177,6 +147,8 @@ export default function App() {
           )}
         </>
       )}
+
+      <Toasts notices={notices} onDismiss={dismissNotice} onOpen={openNotice} />
     </div>
   );
 }
