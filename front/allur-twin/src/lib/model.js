@@ -55,12 +55,13 @@ export async function loadRaw() {
   const to = dayStartIso(addDays(day, 1));
   const live = !!sim?.sim_now;
 
-  const [records, quality, downtime, activeDowntime, incidents, oee] = await Promise.all([
+  const [records, quality, downtime, activeDowntime, incidents, decisions, oee] = await Promise.all([
     api.productionRecords(from),
     api.qualityRecords(from),
     api.downtime(from),
     api.activeDowntime(),
     api.incidents(from),
+    api.decisions().catch(() => []), // варианты решения инцидентов (до миграции 003 таблицы может не быть)
     // В живом режиме OEE считаем на клиенте: серверный снимок устаревает с каждой минутой симуляции
     live ? null : api.oee(factory.id, dayStartIso(day), to).catch(() => null),
   ]);
@@ -68,7 +69,7 @@ export async function loadRaw() {
   const seen = new Set(downtime.map((d) => d.id));
   for (const d of activeDowntime) if (!seen.has(d.id)) downtime.push(d);
 
-  return { factory, areas, equipment, shifts, plans, downtime, incidents, records, quality, oee, sim };
+  return { factory, areas, equipment, shifts, plans, downtime, incidents, decisions, records, quality, oee, sim };
 }
 
 export async function loadTwin() {
@@ -90,6 +91,7 @@ function param(name, value, display, { min, max, lo, hi, norm, st }) {
 // simNow — текущее время завода (мс) от живого потока; без него — из статуса симулятора или конец последней смены
 export function buildModel(raw, simNow = null) {
   const { factory, areas: areasRaw, equipment, shifts, plans, downtime, incidents, records, quality, oee, sim } = raw;
+  const decisionById = Object.fromEntries((raw.decisions ?? []).map((d) => [d.id, d]));
   const lastShift = latestShift(shifts);
   const day = localDate(lastShift.start_at);
   const anchor = simNow ?? (sim?.sim_now ? new Date(sim.sim_now).getTime() : new Date(lastShift.end_at).getTime());
@@ -129,8 +131,16 @@ export function buildModel(raw, simNow = null) {
       ...i, st, area: areaById[i.production_area_id], open: OPEN.has(i.status),
       state: INCIDENT_STATE[i.status] ?? i.status, downtime: match ? match.minutes : null,
       equipment: i.equipment_id ? eqById[i.equipment_id] : null,
+      decision: decisionById[i.id] ?? null,
     };
   });
+
+  // ── Решения по инцидентам: ждут выбора оператора (generating — ИИ ещё готовит варианты)
+  const incById = Object.fromEntries(incs.map((i) => [i.id, i]));
+  const decisions = (raw.decisions ?? []).filter((d) => incById[d.id]).map((d) => ({ ...d, incident: incById[d.id] }));
+  const pendingDecisions = decisions
+    .filter((d) => d.status === 'generating' || d.status === 'ready')
+    .sort((a, b) => ts(a.created_at) - ts(b.created_at));
 
   // ── Участки
   const areas = areasSorted.map((a, idx) => {
@@ -412,7 +422,7 @@ export function buildModel(raw, simNow = null) {
   const notG = areas.filter((a) => a.st !== 'g');
   return {
     factory, day, anchor, lastShift, dayShifts, areas, finalArea, hours, hourPlan, dayPlan,
-    kpis, alerts: alerts.slice(0, 4), incidents: incs, orders, economy, whatIfBase, eqTrends, risingEq,
+    kpis, alerts: alerts.slice(0, 4), incidents: incs, decisions, pendingDecisions, orders, economy, whatIfBase, eqTrends, risingEq,
     lineOee, critDowntime, totalDowntime, worstDefect, bottleneck, monthForecast, monthPlan, avgDaily,
     flowBadge: { n: notG.length, st: worst(...notG.map((a) => a.st)) },
     incBadge: { n: incs.filter((i) => i.open).length, st: incs.some((i) => i.open && i.st === 'r') ? 'r' : 'y' },

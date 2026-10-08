@@ -53,9 +53,9 @@ class SimStore:
     async def insert(self, table: str, row: dict) -> dict:
         cols = list(row)
         sql = (f"INSERT INTO public.{table} ({', '.join(cols)}) "
-               f"VALUES ({', '.join(f'${i + 1}' for i in range(len(cols)))}) RETURNING *")
+               f"VALUES ({', '.join(_param(i + 1, v) for i, v in enumerate(row.values()))}) RETURNING *")
         self.inserts += 1
-        return dict(await self.pool.fetchrow(sql, *row.values()))
+        return _decode(await self.pool.fetchrow(sql, *map(_encode, row.values())))
 
     async def insert_many(self, table: str, rows: list[dict]) -> list[dict]:
         if not rows:
@@ -70,11 +70,10 @@ class SimStore:
         return [dict(r) for r in await self.pool.fetch(sql, *args)]
 
     async def update(self, table: str, row_id: int, fields: dict) -> dict | None:
-        cols = list(fields)
-        sets = ", ".join(f"{c} = ${i + 2}" for i, c in enumerate(cols))
+        sets = ", ".join(f"{c} = {_param(i + 2, v)}" for i, (c, v) in enumerate(fields.items()))
         row = await self.pool.fetchrow(
-            f"UPDATE public.{table} SET {sets} WHERE id = $1 RETURNING *", row_id, *fields.values())
-        return dict(row) if row else None
+            f"UPDATE public.{table} SET {sets} WHERE id = $1 RETURNING *", row_id, *map(_encode, fields.values()))
+        return _decode(row)
 
     # ---------------------------------------------------------------- аренда и состояние
 
@@ -147,3 +146,22 @@ class SimStore:
         if isinstance(out.get("state"), str):
             out["state"] = json.loads(out["state"])
         return out
+
+
+# jsonb-поля (варианты решения инцидента) передаём строкой JSON с явным приведением типа,
+# а обратно отдаём словарём — без глобального кодека, чтобы не задеть simulator_state.state
+def _param(index: int, value: Any) -> str:
+    return f"${index}::jsonb" if isinstance(value, (dict, list)) else f"${index}"
+
+
+def _encode(value: Any) -> Any:
+    return json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
+
+
+def _decode(row) -> dict | None:
+    if row is None:
+        return None
+    out = dict(row)
+    if isinstance(out.get("payload"), str):
+        out["payload"] = json.loads(out["payload"])
+    return out

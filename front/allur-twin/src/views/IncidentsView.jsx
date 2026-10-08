@@ -5,9 +5,31 @@ import { S, fmtDateTime } from '../lib/format';
 
 const FILTERS = [['all', 'Все'], ['crit', 'Критичные'], ['open', 'Незакрытые']];
 const PAGE = 50;
+const CHOICE = { none: 'Ничего не менять', A: 'Вариант A', B: 'Вариант Б' };
+
+// Решение по инциденту: ждёт выбора — кнопка, принято — что выбрали и кто
+function DecisionLine({ decision: d, onOpen }) {
+  if (!d) return null;
+  if (d.status === 'generating' || d.status === 'ready') {
+    return (
+      <button type="button" className="btn btn-primary mt-1.5 py-1 text-xs" onClick={onOpen}>
+        {d.status === 'ready' ? 'Выбрать решение' : 'ИИ готовит варианты…'}
+      </button>
+    );
+  }
+  if (d.status === 'expired') return <div className="text-[11px] text-neutral-600 mt-0.5">Решение не понадобилось</div>;
+  const title = d.chosen !== 'none' ? d.payload?.options?.find((o) => o.key === d.chosen)?.title : null;
+  return (
+    <button type="button" className="text-[11px] mt-0.5 text-left hover:underline" style={{ color: 'var(--color-accent-700)' }} onClick={onOpen}>
+      Решение: {CHOICE[d.chosen]}{title ? ` — ${title}` : ''} · {d.decided_by === 'operator' ? 'оператор' : 'авто'}
+      {d.recommended === d.chosen ? ' · как рекомендовал ИИ' : ''}
+    </button>
+  );
+}
+
 const SEVERITY = { critical: 'критический', high: 'высокий', medium: 'средний', low: 'низкий' };
 
-export default function IncidentsView({ model, areaId, onClearArea }) {
+export default function IncidentsView({ model, areaId, onClearArea, onOpenDecision }) {
   const [filter, setFilter] = useState('all');
   const [shown, setShown] = useState(PAGE);
   const area = areaId != null ? model.areas.find((a) => a.id === areaId) : null;
@@ -51,6 +73,7 @@ export default function IncidentsView({ model, areaId, onClearArea }) {
                 {i.title}
                 {i.description && <div className="text-xs text-neutral-700 mt-0.5">{i.description}</div>}
                 <div className="text-[11px] text-neutral-600 mt-0.5">уровень: {SEVERITY[i.severity] ?? i.severity}</div>
+                <DecisionLine decision={i.decision} onOpen={() => onOpenDecision(i.id)} />
               </div>,
               <div key={`d${i.id}`} className="px-2.5 py-3 border-b border-neutral-300 num text-[17px]" style={{ color: i.st === 'g' ? 'var(--color-text)' : S[i.st].ink }}>
                 {i.downtime != null ? `${i.downtime} мин` : '—'}

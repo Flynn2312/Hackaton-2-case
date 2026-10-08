@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { S, fmtDate, fmtTime } from '../lib/format';
 
+const SPEEDS = [[15, '1 с = 15 с завода: спокойный темп для разбора решений'], [30, '1 с = 30 с завода: по умолчанию'], [60, '1 с = минута завода: быстрый прогон']];
+
 // Часы завода и панель симуляции: пауза, сценарии-инциденты для демонстрации, сброс к текущей дате
 export default function SimControl({ sim, connected, simNow, control }) {
   const [now, setNow] = useState(() => simNow() ?? Date.now());
@@ -79,7 +81,26 @@ export default function SimControl({ sim, connected, simNow, control }) {
           <div>
             <div className="font-heading font-semibold text-lg">Симуляция завода</div>
             <div className="text-xs text-neutral-700">
-              Генератор пишет в БД смены, выработку, простои и инциденты. 1 секунда = {sim?.speed ? Math.round(sim.speed) : 60} с заводского времени; ночи и выходные пропускаются.
+              Генератор пишет в БД смены, выработку, простои и инциденты. 1 секунда = {sim?.speed ? Math.round(sim.speed) : 30} с заводского времени; ночи и выходные пропускаются.
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[11px] tracking-[.08em] uppercase text-neutral-700">Скорость</div>
+            <div className="flex border border-divider">
+              {SPEEDS.map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  disabled={!!busy || !sim?.active}
+                  onClick={() => run(`speed${v}`, (a) => a.simSpeed(v))}
+                  className="flex-1 px-2 py-1.5 text-[13px] border-r border-divider last:border-r-0 disabled:opacity-45"
+                  style={{ background: Math.round(sim?.speed) === v ? 'var(--color-accent)' : 'transparent', color: Math.round(sim?.speed) === v ? 'var(--color-bg)' : 'var(--color-text)' }}
+                  title={label}
+                >
+                  ×{v}
+                </button>
+              ))}
             </div>
           </div>
 

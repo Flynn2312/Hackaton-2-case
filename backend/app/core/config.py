@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # чтобы не перехватывать генерацию у задеплоенного инстанса.
     simulator_enabled: bool = True
 
+    # Claude API: варианты решения инцидентов. Без ключа варианты строит резервный алгоритм
+    anthropic_api_key: str = ""
+    decision_model: str = "claude-opus-5-5"
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Возвращает список разрешенных CORS-доменов, разобранный из строки"""
