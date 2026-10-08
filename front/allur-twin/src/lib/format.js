@@ -13,6 +13,14 @@ export const fmtInt = (v) => Math.round(v).toLocaleString('ru-RU');
 export const fmt1 = (v) => (Math.round(v * 10) / 10).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 export const pct = (v) => `${fmt1(v)}%`;
 export const sgn = (v, f = fmtInt) => (v > 0 ? '+' : v < 0 ? '−' : '') + f(Math.abs(v));
+// Деньги: 4,7 млн ₸ / 850 тыс. ₸ / 0 ₸
+export const fmtKzt = (v) => {
+  const a = Math.abs(v);
+  if (a >= 1e9) return `${fmt1(v / 1e9)} млрд ₸`;
+  if (a >= 1e6) return `${fmt1(v / 1e6)} млн ₸`;
+  if (a >= 1e3) return `${fmtInt(v / 1e3)} тыс. ₸`;
+  return `${fmtInt(v)} ₸`;
+};
 
 // Завод в Костанае: UTC+5 круглый год. Считаем вручную, чтобы не зависеть от tzdata браузера.
 export const TZ_OFFSET_H = 5;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveTwin } from './lib/live';
 import { S } from './lib/format';
 import FlowView from './views/FlowView';
+import FinanceView from './views/FinanceView';
 import WhatIfView from './views/WhatIfView';
 import IncidentsView from './views/IncidentsView';
 import AssistantView from './views/AssistantView';
@@ -50,6 +51,7 @@ export default function App({ initialView = 'flow' }) {
 
   const nav = [
     ['flow', 'Живой завод', model?.flowBadge],
+    ['money', 'Финансы'],
     ['whatif', 'What-If'],
     ['log', 'Инциденты', model?.incBadge],
     ['chat', 'ИИ Ассистент'],
@@ -126,7 +128,7 @@ export default function App({ initialView = 'flow' }) {
       ) : (
         <>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 px-7 pt-5">
-            {model.kpis.map((k) => (
+            {(view === 'money' ? model.finance.kpis : model.kpis).map((k) => (
               <div key={k.l} className="px-5 py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
                 <div className="flex items-center gap-2 text-[13px] text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ background: S[k.st].fill }} />{k.l}
@@ -146,6 +148,7 @@ export default function App({ initialView = 'flow' }) {
               onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
             />
           )}
+          {view === 'money' && <FinanceView model={model} simNow={simNow} onOpen={setSel} onOpenDecision={openDecision} />}
           {view === 'whatif' && <WhatIfView model={model} preset={whatIf} />}
           {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
           {view === 'chat' && <AssistantView model={model} request={chatRequest} />}
