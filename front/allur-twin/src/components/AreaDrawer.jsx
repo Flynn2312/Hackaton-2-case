@@ -110,7 +110,7 @@ export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, on
           <div className="flex gap-2.5 flex-wrap">
             <button type="button" onClick={onWhatIf} className="btn btn-primary">Смоделировать в What-If</button>
             <button type="button" onClick={onIncidents} className="btn btn-secondary">Инциденты участка</button>
-            <button type="button" onClick={onAsk} className="btn btn-secondary">Спросить Copilot</button>
+            <button type="button" onClick={onAsk} className="btn btn-secondary">Спросить ИИ ассистента</button>
           </div>
         </div>
       </aside>

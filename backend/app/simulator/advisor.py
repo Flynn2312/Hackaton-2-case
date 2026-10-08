@@ -22,7 +22,7 @@ from app.simulator.forecast import HORIZON, METRICS, forecast, round_metrics
 
 logger = logging.getLogger(__name__)
 
-MAX_PARALLEL = 2  # одновременных запросов к Claude
+MAX_PARALLEL = 4  # одновременных запросов к Claude (решения, What-If, ассистент)
 _semaphore = asyncio.Semaphore(MAX_PARALLEL)
 _client: anthropic.AsyncAnthropic | None = None
 
@@ -140,11 +140,13 @@ def _context(snapshot: dict, refs: dict, inc_id: int, candidates: list[str], res
     return ctx
 
 
-async def claude_json(system: str, context: dict, schema: dict) -> dict | None:
+async def claude_json(system: str, context: dict | None, schema: dict, messages: list[dict] | None = None,
+                      effort: str = "medium") -> dict | None:
     """
     Запрос к Claude с ответом строго по JSON-схеме. Возвращает разобранный ответ (+ ключ "model")
     или None, если ключа нет или API недоступен — тогда вызывающий строит ответ резервным алгоритмом.
-    Общий для вариантов решения инцидентов и прогноза What-If.
+    Данные передаются одним сообщением (context) или готовой историей диалога (messages).
+    Общий для вариантов решения инцидентов, прогноза What-If и ИИ-ассистента.
     """
     client = _client_or_none()
     if client is None:
@@ -157,9 +159,9 @@ async def claude_json(system: str, context: dict, schema: dict) -> dict | None:
                 # Если классификатор безопасности отклонит запрос, API сам повторит его на резервной модели
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
-                output_config={"effort": "medium", "format": {"type": "json_schema", "schema": schema}},
+                output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}},
                 system=system,
-                messages=[{"role": "user", "content": json.dumps(context, ensure_ascii=False, indent=1)}],
+                messages=messages or [{"role": "user", "content": json.dumps(context, ensure_ascii=False, indent=1)}],
             )
         except anthropic.RateLimitError:
             logger.warning("Claude: превышен лимит запросов, ответ строит резервный алгоритм")

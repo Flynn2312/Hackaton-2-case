@@ -1,4 +1,5 @@
 from .analytics import analytics_router
+from .assistant import assistant_router
 from .decisions import decisions_router
 from .digital_twin import digital_twin_router
 from .directories import directories_router
