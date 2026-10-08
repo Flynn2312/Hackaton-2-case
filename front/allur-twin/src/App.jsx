@@ -3,8 +3,6 @@ import { useLiveTwin } from './lib/live';
 import { S } from './lib/format';
 import FlowView from './views/FlowView';
 import WhatIfView from './views/WhatIfView';
-import AiRiskCenterView from './views/AiRiskCenterView';
-import RoiView from './views/RoiView';
 import IncidentsView from './views/IncidentsView';
 import AssistantView from './views/AssistantView';
 import AreaDrawer from './components/AreaDrawer';
@@ -49,13 +47,10 @@ export default function App({ initialView = 'flow' }) {
     else if (n.kind === 'incident') { setView('log'); setSel(null); setLogArea(n.area_id ?? null); }
     else if (n.area_id != null) { setView('flow'); setLogArea(null); setSel(n.area_id); }
   };
-  const riskCount = model ? model.alerts.filter((a) => a.st === 'r').length : 0;
 
   const nav = [
     ['flow', 'Живой завод', model?.flowBadge],
     ['whatif', 'What-If'],
-    ['airisk', 'AI Risk Center', { n: riskCount, st: 'r' }],
-    ['roi', 'Экономика & ROI'],
     ['log', 'Инциденты', model?.incBadge],
     ['chat', 'ИИ Ассистент'],
   ];
@@ -152,14 +147,6 @@ export default function App({ initialView = 'flow' }) {
             />
           )}
           {view === 'whatif' && <WhatIfView model={model} preset={whatIf} />}
-          {view === 'airisk' && (
-            <AiRiskCenterView
-              model={model}
-              onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
-              onOpenWhatIf={(p) => { setWhatIf(p); setView('whatif'); }}
-            />
-          )}
-          {view === 'roi' && <RoiView model={model} />}
           {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
           {view === 'chat' && <AssistantView model={model} request={chatRequest} />}
 

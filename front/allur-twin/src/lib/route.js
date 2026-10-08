@@ -2,7 +2,7 @@
 // Hash, а не pathname: статический хостинг не нужно настраивать на rewrite.
 import { useEffect, useState } from 'react';
 
-export const VIEWS = ['flow', 'whatif', 'airisk', 'roi', 'log', 'chat'];
+export const VIEWS = ['flow', 'whatif', 'log', 'chat'];
 
 export function parseHash(hash = window.location.hash) {
   const m = hash.match(/^#\/app(?:\/([a-z]+))?/);
