@@ -164,7 +164,13 @@ def worst_quality(date: str = LATEST_DATE) -> Dict[str, Any]:
 
 
 def defect_trend(area: str) -> List[float]:
-    return [quality(d, area)["defect_pct"] for d in DATES if quality(d, area)]
+    trend: List[float] = []
+    for d in DATES:
+        q = quality(d, area)
+        if q is not None:
+            trend.append(q["defect_pct"])
+    return trend
+
 
 
 def critical_equipment_load() -> List[Dict[str, Any]]:
