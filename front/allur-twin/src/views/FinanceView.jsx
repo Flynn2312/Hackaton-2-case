@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Blueprint } from '../components/ui';
 import { ECON } from '../lib/model';
 import { S, fmtDayLong, fmtInt, fmtKzt, fmtTime } from '../lib/format';
+import LossesCard from '../components/LossesCard';
 
 // «Финансы»: сколько линия теряет прямо сейчас и куда уходят деньги по участкам за сутки.
 // KPI в тенге выводятся в общей строке KPI над вкладкой (App.jsx).
@@ -12,10 +13,58 @@ export default function FinanceView({ model, simNow, onOpen, onOpenDecision }) {
   return (
     <main className="px-7 pt-6 pb-10 flex flex-col gap-7">
       <LiveLoss stops={model.finance.stops} anchor={model.anchor} simNow={simNow} pending={model.pendingDecisions.length} onOpenDecision={onOpenDecision} />
+      <LossesCard model={model} />
+      <BusinessEffectCard />
       <AreaLosses finance={model.finance} day={model.day} onOpen={onOpen} />
     </main>
   );
 }
+
+function BusinessEffectCard() {
+  return (
+    <Blueprint className="p-[20px] flex flex-col gap-4 border border-neutral-300">
+      <div className="flex justify-between items-baseline gap-3 flex-wrap">
+        <div>
+          <span className="text-xs uppercase tracking-wider font-semibold text-brand">Экономическое обоснование внедрения</span>
+          <h4 className="text-lg font-heading">Годовой эффект для АО «Группа компаний АЛЛЮР»: 1,2 млрд ₸</h4>
+          <div className="text-xs text-neutral-700">Расчет на основе данных кейса Allur при CAPEX 85 млн ₸ · чистая окупаемость 2,8 мес.</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200"
+          title="Печать сменного рапорта"
+        >
+          <span>🖨️ Экспорт рапорта (Печать / PDF)</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 flex flex-col gap-1">
+          <span className="text-xs text-neutral-600">Совокупный эффект</span>
+          <span className="num text-2xl font-bold text-brand">1,2 млрд ₸</span>
+          <span className="text-[11px] text-neutral-500">ROI &gt; 400% в 1-й год</span>
+        </div>
+        <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 flex flex-col gap-1">
+          <span className="text-xs text-neutral-600">Срок окупаемости</span>
+          <span className="num text-2xl font-bold text-emerald-600">2,8 мес.</span>
+          <span className="text-[11px] text-neutral-500">чистый срок возврата CAPEX</span>
+        </div>
+        <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 flex flex-col gap-1">
+          <span className="text-xs text-neutral-600">Предотвращение простоев</span>
+          <span className="num text-2xl font-bold text-text">145 ч / год</span>
+          <span className="text-[11px] text-neutral-500">≈ 739,5 млн ₸ по ставке 85 тыс./мин</span>
+        </div>
+        <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 flex flex-col gap-1">
+          <span className="text-xs text-neutral-600">Снижение брака ЛКП</span>
+          <span className="num text-2xl font-bold text-text">930 кузовов</span>
+          <span className="text-[11px] text-neutral-500">спасены от перекраса (111,6 млн ₸)</span>
+        </div>
+      </div>
+    </Blueprint>
+  );
+}
+
 
 /* ───────── Линия теряет сейчас ───────── */
 

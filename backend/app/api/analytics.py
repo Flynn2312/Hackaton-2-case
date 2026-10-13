@@ -44,3 +44,24 @@ async def get_downtime_stats(
 ):
     data = await analytics_repo.calculate_downtime_stats(conn, date_from, date_to)
     return {"data": data}
+
+
+@analytics_router.get("/business-effect", summary="Экономический эффект внедрения для Allur (1.2 млрд ₸)")
+def get_business_effect():
+    from app.services.analytics import AnalyticsService
+    return {"data": AnalyticsService.get_business_effect()}
+
+
+@analytics_router.get("/data-quality", summary="Аудит расхождений и коллизий производственных данных")
+def get_data_quality():
+    from app.services.case_data import data_quality_issues
+    issues = data_quality_issues()
+    return {
+        "data": {
+            "status": "success",
+            "factory": "АО «Группа компаний АЛЛЮР»",
+            "total_issues": len(issues),
+            "issues": issues,
+        }
+    }
+

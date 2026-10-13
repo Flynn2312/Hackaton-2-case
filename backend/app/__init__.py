@@ -11,6 +11,7 @@ from app.api import (
     digital_twin_router,
     directories_router,
     health_router,
+    losses_router,
     maintenance_router,
     production_router,
     simulator_router,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     for r in (
             analytics_router, assistant_router, decisions_router, digital_twin_router, directories_router,
             health_router, maintenance_router, production_router, simulator_router, whatif_router,
+            losses_router,
     ):
         app.include_router(r)
 

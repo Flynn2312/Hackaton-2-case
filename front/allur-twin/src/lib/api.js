@@ -79,4 +79,8 @@ export const api = {
   whatIf: (scenario) => post('/whatif/forecast', scenario),
   assistant: (messages, areaCode) => post('/assistant/chat', { messages, area_code: areaCode }),
   decide: (incidentId, choice) => post(`/incidents/${incidentId}/decision`, { choice }),
+  losses: (date) => get('/losses', { date }),
+  businessEffect: () => get('/analytics/business-effect'),
+  dataQuality: () => get('/analytics/data-quality'),
 };
+

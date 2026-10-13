@@ -1,4 +1,5 @@
 from .analytics import analytics_router
+from .api_losses import losses_router
 from .assistant import assistant_router
 from .decisions import decisions_router
 from .digital_twin import digital_twin_router
@@ -8,3 +9,4 @@ from .maintenance import maintenance_router
 from .production import production_router
 from .simulator import simulator_router
 from .whatif import whatif_router
+
