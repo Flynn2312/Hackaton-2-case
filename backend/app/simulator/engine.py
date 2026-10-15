@@ -199,9 +199,12 @@ class PlantSimulator:
             code = self.code_by_id.get(row["equipment_id"])
             if code is None or row["id"] in tracked:
                 continue
+            # Длительность отсчитываем от начала простоя, а не от «сейчас»: иначе простой, открытый к моменту
+            # старта или сброса симулятора, растягивается на ночи и выходные (был случай — 61 час).
+            # Если конец уже в прошлом, простой закроется на ближайшем шаге этим временем.
             self.st["downtime"][code] = {
                 "id": row["id"], "type": row["type"], "reason": row["reason"], "start": iso(row["started_at"]),
-                "end": iso(max(t, row["started_at"]) + MINUTE * self.rng.randint(10, 60)),
+                "end": iso(row["started_at"] + MINUTE * self.rng.randint(10, 60)),
             }
         for row in await self.store.open_incidents():
             if str(row["id"]) not in self.st["incidents"]:

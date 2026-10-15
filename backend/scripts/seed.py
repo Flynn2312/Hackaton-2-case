@@ -107,10 +107,10 @@ def iso(dt: datetime) -> str:
     return dt.isoformat()
 
 
-def build_shifts() -> list[ShiftData]:
+def build_shifts(start: date = START_DATE, end: date = END_DATE) -> list[ShiftData]:
     shifts = []
-    day = START_DATE
-    while day <= END_DATE:
+    day = start
+    while day <= end:
         if day.weekday() < 5 and day not in HOLIDAYS:
             for number, hour in ((1, 8), (2, 16)):
                 start = datetime(day.year, day.month, day.day, hour, tzinfo=TZ)
@@ -176,9 +176,14 @@ def line_stop_minutes(events: list[dict]) -> dict[str, list[float]]:
     return stops
 
 
-def generate() -> dict:
-    rng = random.Random(SEED)
-    shifts = build_shifts()
+def generate(start: date = START_DATE, end: date = END_DATE, now: datetime = NOW, seed: int = SEED,
+             open_tail: bool = True) -> dict:
+    """История за start..end. open_tail — оставить открытым простой AGV-02 в конце (как в исходном сиде);
+    для дозаполнения пропуска (scripts/fill_gap.py) — False. now — момент, от которого считаются статусы инцидентов."""
+    rng = random.Random(seed)
+    shifts = build_shifts(start, end)
+    if not shifts:
+        return {"shifts": [], "downtime": [], "production": [], "quality": [], "plans": [], "incidents": []}
     buffers = {area: INITIAL_BUFFER for area in LINE_AREAS[1:]}
 
     downtime, production, quality, plans, incidents = [], [], [], [], []
@@ -246,20 +251,21 @@ def generate() -> dict:
         incidents.extend(shift_incidents(rng, shift, events, shift_prod))
 
     # Текущий незакрытый простой: AGV-02 стоит с вечера 05.10
-    last = shifts[-1]
-    agv_start = last.start_at + timedelta(minutes=400)
-    downtime.append({"shift": last.index, "code": "WH-AGV-02", "reason": "Отказ лидара навигации",
-                     "type": "breakdown", "started_at": agv_start, "ended_at": None})
-    incidents.append({
-        "area": "WH-IN", "code": "WH-AGV-02", "shift": last.index, "created_at": agv_start + timedelta(minutes=3),
-        "severity": "medium", "type": "equipment_failure", "status": "open",
-        "title": "Отказ: Транспортная тележка AGV-02 — Отказ лидара навигации",
-        "description": "AGV-02 остановлена, ожидается замена лидара. Доставка комплектующих выполняется погрузчиками.",
-    })
+    if open_tail:
+        last = shifts[-1]
+        agv_start = last.start_at + timedelta(minutes=400)
+        downtime.append({"shift": last.index, "code": "WH-AGV-02", "reason": "Отказ лидара навигации",
+                         "type": "breakdown", "started_at": agv_start, "ended_at": None})
+        incidents.append({
+            "area": "WH-IN", "code": "WH-AGV-02", "shift": last.index, "created_at": agv_start + timedelta(minutes=3),
+            "severity": "medium", "type": "equipment_failure", "status": "open",
+            "title": "Отказ: Транспортная тележка AGV-02 — Отказ лидара навигации",
+            "description": "AGV-02 остановлена, ожидается замена лидара. Доставка комплектующих выполняется погрузчиками.",
+        })
 
     incidents.extend(daily_downtime_limit_incidents(downtime, shifts))
     for inc in incidents:
-        inc.setdefault("status", incident_status(rng, inc["created_at"]))
+        inc.setdefault("status", incident_status(rng, inc["created_at"], now))
 
     return {"shifts": shifts, "downtime": downtime, "production": production,
             "quality": quality, "plans": plans, "incidents": incidents}
@@ -381,8 +387,8 @@ def daily_downtime_limit_incidents(downtime: list[dict], shifts: list[ShiftData]
     return result
 
 
-def incident_status(rng: random.Random, created_at: datetime) -> str:
-    age = NOW - created_at
+def incident_status(rng: random.Random, created_at: datetime, now: datetime = NOW) -> str:
+    age = now - created_at
     if age > timedelta(days=7):
         return rng.choices(["closed", "resolved"], weights=[85, 15])[0]
     if age > timedelta(days=2):
