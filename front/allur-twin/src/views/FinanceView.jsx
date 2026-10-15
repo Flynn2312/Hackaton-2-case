@@ -1,14 +1,34 @@
-import { useEffect, useState } from 'react';
-import { Blueprint } from '../components/ui';
+import { useEffect, useRef, useState } from 'react';
 import PeriodPicker from '../components/PeriodPicker';
 import { usePeriodSummary } from '../lib/period';
 import { ECON } from '../lib/model';
-import { S, fmtInt, fmtKzt, fmtTime } from '../lib/format';
+import { S, fmt1, fmtInt, fmtKzt, fmtTime } from '../lib/format';
 
 // «Финансы»: сколько линия теряет прямо сейчас и куда уходят деньги по участкам за выбранный период.
 // KPI в тенге за текущие сутки выводятся в общей строке KPI над вкладкой (App.jsx).
-const DOWNTIME = 'var(--color-accent-800)';
-const DEFECT = 'var(--color-accent-400)';
+// Полосы «Куда уходят деньги»: простой — тёмный, брак — серый; самый дорогой участок — красным
+const DOWNTIME = '#232323';
+const DEFECT = '#c9c9c9';
+const LEAD = 'var(--color-brand)';
+const LEAD_DEFECT = '#f4aaa5';
+// Подпись куска: млн с одним знаком, мелкие суммы — в тысячах
+const short = (v) => (v >= 1e6 ? `${fmt1(v / 1e6)} млн` : `${fmtInt(v / 1e3)} тыс.`);
+// Подпись пишем, только если целиком влезает в кусок: ~6,2 px на символ 12px/600 + отступы 20 px
+const fits = (text, px) => px >= text.length * 6.2 + 20;
+
+// Ширина дорожки полосы (у всех строк одинаковая) — от неё зависит, влезает ли подпись
+function useWidth() {
+  const ref = useRef(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
 
 export default function FinanceView({ model, simNow, period, onPeriod, onOpenDecision }) {
   const sum = usePeriodSummary(model, period);
@@ -78,6 +98,8 @@ function LiveLoss({ stops, anchor, simNow, pending, onOpenDecision }) {
 function AreaLosses({ finance, sum, period, onPeriod }) {
   const max = Math.max(...finance.areas.map((a) => a.total), 1);
   const top = finance.total > 0 ? [...finance.areas].sort((a, b) => b.total - a.total)[0] : null;
+  const [trackRef, trackW] = useWidth();
+  const label = (text, v) => (fits(text, (v / max) * trackW) ? text : '');
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-end justify-between gap-4 flex-wrap">
@@ -97,35 +119,55 @@ function AreaLosses({ finance, sum, period, onPeriod }) {
             <span>эффект решений ИИ <b className="font-medium" style={{ color: finance.aiEffect < 0 ? S.y.ink : S.g.ink }}>{finance.aiEffect > 0 ? '+' : finance.aiEffect < 0 ? '−' : ''}{fmtKzt(Math.abs(finance.aiEffect))}</b> ({finance.applied})</span>
           )}
         </div>
-        <div className="flex gap-4 text-xs text-neutral-700">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5" style={{ background: DOWNTIME }} />простой</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5" style={{ background: DEFECT }} />брак и доработка</span>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-700 [&>span]:whitespace-nowrap">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: DOWNTIME }} />простой</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: DEFECT }} />брак и доработка</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: LEAD }} />самый дорогой участок</span>
         </div>
       </div>
 
-      <Blueprint className="px-4 py-2 sm:p-[18px] flex flex-col">
-        {finance.areas.map((a) => (
-          <div
-            key={a.id}
-            className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(140px,200px)_minmax(0,1fr)_110px] items-center gap-x-4 gap-y-2 border-t border-divider first:border-t-0 py-3"
-          >
-            <span className="flex flex-col min-w-0">
-              <span className="flex flex-wrap items-center gap-2 font-medium text-[15px]">
-                {a.name}
-                {a.id === top?.id && <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand text-white">больше всего</span>}
+      <div className="bg-bg rounded-[14px] px-4 sm:px-6 py-1 sm:py-3 flex flex-col">
+        {finance.areas.map((a, i) => {
+          const lead = a.id === top?.id;
+          const both = a.downtimeKzt > 0 && a.defectKzt > 0;
+          const dtW = (a.downtimeKzt / max) * 100;
+          const dfW = (a.defectKzt / max) * 100;
+          const dtLabel = label(`простой ${short(a.downtimeKzt)}`, a.downtimeKzt);
+          const dfLabel = label(`брак ${short(a.defectKzt)}`, a.defectKzt);
+          return (
+            <div
+              key={a.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(160px,230px)_minmax(0,1fr)_130px] items-center gap-x-4 gap-y-2 py-3.5 border-b border-[#f0f0f0] last:border-b-0"
+            >
+              <span className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-[15px] font-semibold break-words transition-colors duration-300" style={{ color: lead ? LEAD : undefined }}>{a.name}</span>
+                <span className="text-xs text-[#888]">
+                  {a.total ? [a.downtimeMin && `${fmtInt(a.downtimeMin)} мин простоя`, a.defects && `брак ${fmtInt(a.defects)} ед.`].filter(Boolean).join(' · ') : 'без потерь'}
+                </span>
               </span>
-              <span className="text-xs text-neutral-700">
-                {a.total ? [a.downtimeMin && `${fmtInt(a.downtimeMin)} мин простоя`, a.defects && `брак ${fmtInt(a.defects)} ед.`].filter(Boolean).join(' · ') : 'без потерь'}
+              <span
+                ref={i === 0 ? trackRef : undefined}
+                className="col-span-2 sm:col-span-1 order-last sm:order-none flex h-[30px] rounded-md overflow-hidden bg-[#f4f4f4]"
+                title={`простой ${fmtKzt(a.downtimeKzt)} · брак ${fmtKzt(a.defectKzt)}`}
+              >
+                <span
+                  className="flex items-center overflow-hidden whitespace-nowrap text-xs font-semibold text-white transition-[width,background-color] duration-500"
+                  style={{ width: `${dtW}%`, background: lead ? LEAD : DOWNTIME, paddingLeft: dtLabel ? 10 : 0 }}
+                >
+                  {dtLabel}
+                </span>
+                <span
+                  className="flex items-center overflow-hidden whitespace-nowrap text-xs font-semibold text-[#1d1d1f] transition-[width,background-color] duration-500"
+                  style={{ width: both ? `calc(${dfW}% - 2px)` : `${dfW}%`, marginLeft: both ? 2 : 0, background: lead ? LEAD_DEFECT : DEFECT, paddingLeft: dfLabel ? 10 : 0 }}
+                >
+                  {dfLabel}
+                </span>
               </span>
-            </span>
-            <span className="col-span-2 sm:col-span-1 order-last sm:order-none flex h-3 rounded-full overflow-hidden bg-neutral-200" title={`простой ${fmtKzt(a.downtimeKzt)} · брак ${fmtKzt(a.defectKzt)}`}>
-              <span className="transition-[width] duration-500" style={{ width: `${(a.downtimeKzt / max) * 100}%`, background: DOWNTIME }} />
-              <span className="transition-[width] duration-500" style={{ width: `${(a.defectKzt / max) * 100}%`, background: DEFECT }} />
-            </span>
-            <span className="num text-lg text-right whitespace-nowrap" style={{ color: a.total ? 'var(--color-text)' : 'var(--color-neutral-600)' }}>{fmtKzt(a.total)}</span>
-          </div>
-        ))}
-      </Blueprint>
+              <span className="num text-[17px] sm:text-[19px] text-right whitespace-nowrap transition-colors duration-300" style={{ color: !a.total ? '#aaa' : lead ? LEAD : '#1d1d1f' }}>{fmtKzt(a.total)}</span>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="text-xs text-neutral-700">
         Минута простоя линии — {fmtInt(ECON.downtimeMinKzt)} ₸ (уже включает упущенную маржу, поэтому недовыпуск отдельно не прибавляется),
