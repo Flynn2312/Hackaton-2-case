@@ -28,7 +28,7 @@ export const ECON = {
 // критичный узел останавливает участок, средний — наполовину, некритичный на выпуск не влияет.
 // Нехватка комплектующих останавливает участок целиком.
 export const STOP_WEIGHT = { high: 1, medium: 0.5, low: 0 };
-const stopWeight = (e) => (e.type === 'material_shortage' ? 1 : STOP_WEIGHT[e.eq?.criticality] ?? 0);
+export const stopWeight = (e) => (e.type === 'material_shortage' ? 1 : STOP_WEIGHT[e.eq?.criticality] ?? 0);
 
 const HISTORY_DAYS = 28;
 const SEVERITY_ST = { critical: 'r', high: 'r', medium: 'y', low: 'g' };
@@ -53,11 +53,14 @@ export async function loadRaw() {
 
   const lastShift = latestShift(shifts);
   const day = localDate(lastShift.start_at);
-  const from = dayStartIso(addDays(day, -HISTORY_DAYS));
+  // Истории хватает и на 4 недели трендов, и на «Сводку» за прошлый месяц
+  const prevMonth = addDays(`${day.slice(0, 7)}-01`, -1).slice(0, 7) + '-01';
+  const historyFrom = [addDays(day, -HISTORY_DAYS), prevMonth].sort()[0];
+  const from = dayStartIso(historyFrom);
   const to = dayStartIso(addDays(day, 1));
   const live = !!sim?.sim_now;
 
-  const [records, quality, downtime, activeDowntime, incidents, decisions, oee] = await Promise.all([
+  const [records, quality, downtime, activeDowntime, incidents, decisions, oee, carModels] = await Promise.all([
     api.productionRecords(from),
     api.qualityRecords(from),
     api.downtime(from),
@@ -66,12 +69,13 @@ export async function loadRaw() {
     api.decisions().catch(() => []), // варианты решения инцидентов (до миграции 003 таблицы может не быть)
     // В живом режиме OEE считаем на клиенте: серверный снимок устаревает с каждой минутой симуляции
     live ? null : api.oee(factory.id, dayStartIso(day), to).catch(() => null),
+    api.carModels().catch(() => []),
   ]);
   // Идущие простои могли начаться раньше окна истории
   const seen = new Set(downtime.map((d) => d.id));
   for (const d of activeDowntime) if (!seen.has(d.id)) downtime.push(d);
 
-  return { factory, areas, equipment, shifts, plans, downtime, incidents, decisions, records, quality, oee, sim };
+  return { factory, areas, equipment, shifts, plans, downtime, incidents, decisions, records, quality, oee, sim, carModels, historyFrom };
 }
 
 export async function loadTwin() {
@@ -88,6 +92,28 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function param(name, value, display, { min, max, lo, hi, norm, st }) {
   const toPct = (v) => clamp(((v - min) / (max - min)) * 100, 0, 100);
   return { name, value, display, norm, st, pos: toPct(value), normFrom: toPct(lo), normWidth: toPct(hi) - toPct(lo) };
+}
+
+// OEE и качество по набору почасовых записей одного участка.
+// Доступное время: полный час для прошедших часов, для идущего — сколько минут уже прошло.
+export function oeeStats(recs, quals, anchor) {
+  const plan = sum(recs, (r) => r.planned_quantity);
+  const actual = sum(recs, (r) => r.actual_quantity);
+  const runtime = sum(recs, (r) => r.runtime_minutes);
+  const hourStarts = [...new Set(recs.map((r) => ts(r.timestamp)))];
+  const availMin = sum(hourStarts, (t) => clamp((anchor - t) / 60000, 0, 60));
+  const total = sum(quals, (q) => q.total_quantity);
+  const good = sum(quals, (q) => q.good_quantity);
+  const scrap = sum(quals, (q) => q.scrap_quantity);
+  const rework = sum(quals, (q) => q.rework_quantity);
+  const A = availMin ? runtime / availMin : 0;
+  const P = plan && A ? Math.min(1, actual / (plan * A)) : 0;
+  const Q = total ? good / total : 1;
+  return {
+    plan, actual, runtime, availMin, total, good, scrap, rework, A, P, Q, oee: A * P * Q * 100,
+    defect: total ? (scrap / total) * 100 : 0,
+    load: recs.length ? sum(recs, (r) => Number(r.load_percent)) / recs.length : 0,
+  };
 }
 
 // simNow — текущее время завода (мс) от живого потока; без него — из статуса симулятора или конец последней смены
@@ -155,24 +181,10 @@ export function buildModel(raw, simNow = null) {
     const dayRecs = (recsByArea[a.id] ?? []).filter((r) => dayShiftIds.has(r.shift_id));
     const dayQual = (qualByArea[a.id] ?? []).filter((q) => dayShiftIds.has(q.shift_id));
 
-    const plan = sum(dayRecs, (r) => r.planned_quantity);
-    const actual = sum(dayRecs, (r) => r.actual_quantity);
-    const runtime = sum(dayRecs, (r) => r.runtime_minutes);
-    // Доступное время: полный час для прошедших часов, для идущего — сколько минут уже прошло
-    const hourStarts = [...new Set(dayRecs.map((r) => new Date(r.timestamp).getTime()))];
-    const availMin = sum(hourStarts, (t) => clamp((anchor - t) / 60000, 0, 60));
-    const hasRec = dayRecs.length > 0 && availMin >= 5; // первые минуты смены ещё не показательны
-    const total = sum(dayQual, (q) => q.total_quantity);
-    const good = sum(dayQual, (q) => q.good_quantity);
-    const scrap = sum(dayQual, (q) => q.scrap_quantity);
-    const rework = sum(dayQual, (q) => q.rework_quantity);
-
-    const A = availMin ? runtime / availMin : 0;
-    const P = plan && A ? Math.min(1, actual / (plan * A)) : 0;
-    const Q = total ? good / total : 1;
-    const oeeA = A * P * Q * 100;
-    const defect = total ? (scrap / total) * 100 : 0;
-    const load = dayRecs.length ? sum(dayRecs, (r) => Number(r.load_percent)) / dayRecs.length : 0;
+    const s = oeeStats(dayRecs, dayQual, anchor);
+    const { plan, actual, runtime, total, scrap, rework, A, P, Q, defect, load } = s;
+    const oeeA = s.oee;
+    const hasRec = dayRecs.length > 0 && s.availMin >= 5; // первые минуты смены ещё не показательны
     const ct = actual ? (runtime * 60) / actual : null;
 
     const areaDt = dtDay.filter((e) => e.areaId === a.id);
@@ -447,6 +459,8 @@ export function buildModel(raw, simNow = null) {
     flowBadge: { n: notG.length, st: worst(...notG.map((a) => a.st)) },
     incBadge: { n: incs.filter((i) => i.open).length, st: incs.some((i) => i.open && i.st === 'r') ? 'r' : 'y' },
     stats: { areas: areas.length, equipment: equipment.length, downtime: downtime.length, incidents: incidents.length, records: records.length },
+    // История для итогов за период (lib/period.js)
+    history: { shifts, plans, dt, recs, qual, decisions, carModels: raw.carModels ?? [], from: raw.historyFrom ?? addDays(day, -HISTORY_DAYS) },
     updatedAt: Date.now(), lastShiftLabel: `${lastShift.name} · ${fmtDateTime(lastShift.start_at)}`,
   };
 }

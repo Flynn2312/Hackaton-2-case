@@ -190,23 +190,9 @@ export default function WhatIfView({ model, preset }) {
   return (
     <main className="px-4 md:px-7 pt-6 pb-12 flex flex-col gap-6 min-w-0">
       <PageTitle
-        title="Сценарный тренажёр: Что будет, если? (What-If Simulation)"
+        title="Сценарный тренажёр: Что будет, если?"
         sub="Смоделируйте управленческие воздействия до их применения на реальном заводе Allur"
-      />
-
-      {/* KILLER FEATURE BANNER СО СЛОГАНОМ ДЛЯ ЗАЩИТЫ ПЕРЕД ЖЮРИ */}
-      <Blueprint className="p-4 bg-accent-100/60 border-accent-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <div className="font-heading font-bold text-base sm:text-lg text-accent-900">
-              «Большинство систем показывают, что уже произошло. Наш цифровой двойник позволяет проверить, что произойдёт дальше».
-            </div>
-            <div className="text-xs text-neutral-700 mt-0.5">
-              Сценарий проигрывается на копии живого завода, а ИИ объясняет последствия для выпуска, брака, простоя и денег.
-            </div>
-          </div>
-        </div>
-
+      >
         <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
           <span className="text-xs text-neutral-600 mr-1">Быстрые сценарии:</span>
           <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('paint-defect')}>
@@ -225,7 +211,7 @@ export default function WhatIfView({ model, preset }) {
             Сброс
           </button>
         </div>
-      </Blueprint>
+      </PageTitle>
 
       {/* Основная рабочая область: слева рычаги, справа прогноз ИИ */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.25fr)] gap-7 items-start">

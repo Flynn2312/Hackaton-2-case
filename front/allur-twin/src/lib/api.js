@@ -59,6 +59,7 @@ export const api = {
   factories: () => get('/factories'),
   areas: (factoryId) => get('/production-areas', { factory_id: factoryId }),
   equipment: () => get('/equipment'),
+  carModels: () => get('/car-models'),
   shifts: (factoryId, limit = 80) => get('/shifts', { factory_id: factoryId, limit }),
   plans: (factoryId) => getAll('/production-plans', { factory_id: factoryId }),
   productionRecords: (dateFrom, dateTo) => getAll('/production-records', { date_from: dateFrom, date_to: dateTo }),
