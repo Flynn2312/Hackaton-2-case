@@ -252,8 +252,7 @@ class PlantSimulator:
 
     async def _start_shift(self, number: int, start: datetime, end: datetime, t: datetime) -> None:
         rng = self.rng
-        last = rng.choice(["JAC-J7", "CHEV-TRACKER"])
-        models = ["CHEV-ONIX"] * 4 + ["CHEV-COBALT"] * 3 + [last]
+        models = P.shift_models(rng, self.refs["model_ids"])
         first_hour = int((t - start) / HOUR)  # если стартовали посреди смены — план только на оставшиеся часы
         remaining = models[first_hour:]
 
@@ -308,6 +307,7 @@ class PlantSimulator:
         ts = start + HOUR * index
         model_id = self.refs["model_ids"][shift["models"][index]]
         base = {"shift_id": shift["id"], "car_model_id": model_id, "timestamp": ts}
+        quality = P.MODEL_QUALITY.get(shift["models"][index], 1.0)
         areas = [a for a in P.LINE_AREAS if a in self.refs["area_ids"]]
         prod = await self.store.insert_many("production_records", [
             {**base, "production_area_id": self.refs["area_ids"][a], "planned_quantity": 0, "actual_quantity": 0,
@@ -319,7 +319,7 @@ class PlantSimulator:
         self.hub.upsert("quality_records", *qual)
 
         penalty = 0.012 if shift["number"] == 2 else 0.0  # вечером чуть ниже темп, как в истории
-        self.st["hour"] = {"ts": iso(ts), "model_id": model_id, "areas": {
+        self.st["hour"] = {"ts": iso(ts), "model_id": model_id, "quality": quality, "areas": {
             a: {"prod": p["id"], "qual": q["id"], "minutes": 0, "actual": 0, "runtime": 0.0, "scrap": 0, "rework": 0,
                 "perf": min(max(self.rng.gauss(0.99 - penalty, 0.03), 0.85), 1.08)}
             for a, p, q in zip(areas, prod, qual)}}
@@ -408,7 +408,7 @@ class PlantSimulator:
                 if boost and parse(boost["until"]) > t:
                     scrap_p += boost["extra"]
                     rework_p += boost["extra"] / 2
-                scrap_p *= quality
+                scrap_p *= quality * hour.get("quality", 1.0)  # у новых моделей брак выше
                 fixed = self._mod("scrap", area, t, None)  # брак задан сценарием What-If
                 if fixed is not None:
                     scrap_p = fixed

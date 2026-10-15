@@ -19,12 +19,50 @@ MAX_BUFFER = 30
 
 FACTORY = {"name": "СарыаркаАвтоПром", "location": "Казахстан, г. Костанай"}
 
+# Модели, которые Allur собирает в Костанае полным циклом (сварка, окраска, сборка). Первые три — план кейса.
+# Порядок важен: id в справочнике растут по этому списку, по нему же идут марки на «Сводке».
 CAR_MODELS = [
     ("Chevrolet Onix", "CHEV-ONIX"),
     ("Chevrolet Cobalt", "CHEV-COBALT"),
     ("JAC J7", "JAC-J7"),
     ("Chevrolet Tracker", "CHEV-TRACKER"),
+    ("JAC S3", "JAC-S3"),
+    ("Kia Sportage", "KIA-SPORTAGE"),
+    ("Kia Cerato", "KIA-CERATO"),
+    ("Jetour X70 Plus", "JETOUR-X70PLUS"),
+    ("BAIC X55", "BAIC-X55"),
 ]
+
+# Смена — 8 часов, в каждый час линия выпускает одну модель. Основной объём — Onix и Cobalt (план кейса:
+# 2 500 и 1 800 в месяц), остальные модели идут короткими партиями в конце смены.
+# С вероятностью TWO_SLOTS_P смена отдаёт под партии два часа вместо одного (за счёт Cobalt).
+TWO_SLOTS_P = 0.3
+BATCH_MODELS = {  # доля часов-партий
+    "JAC-J7": 0.40,
+    "CHEV-TRACKER": 0.14,
+    "KIA-SPORTAGE": 0.14,
+    "JETOUR-X70PLUS": 0.10,
+    "KIA-CERATO": 0.08,
+    "JAC-S3": 0.08,
+    "BAIC-X55": 0.06,
+}
+
+# Множитель брака по модели: освоенные модели стабильнее, недавно запущенные (Jetour — 2025, BAIC — 2026)
+# дают больше брака, пока не отлажены оснастка и программы роботов
+MODEL_QUALITY = {
+    "CHEV-COBALT": 0.95, "CHEV-ONIX": 1.0, "CHEV-TRACKER": 1.05,
+    "JAC-J7": 1.1, "JAC-S3": 1.05,
+    "KIA-SPORTAGE": 0.85, "KIA-CERATO": 0.9,
+    "JETOUR-X70PLUS": 1.2, "BAIC-X55": 1.35,
+}
+
+
+def shift_models(rng: random.Random, available=None) -> list[str]:
+    """Модель на каждый час смены. available — коды из справочника БД (модели, которых там нет, пропускаются)."""
+    batch = {c: w for c, w in BATCH_MODELS.items() if available is None or c in available} or {"JAC-J7": 1.0}
+    slots = 2 if rng.random() < TWO_SLOTS_P else 1
+    picks = rng.choices(list(batch), weights=list(batch.values()), k=slots)
+    return ["CHEV-ONIX"] * 4 + ["CHEV-COBALT"] * (4 - slots) + picks
 
 # code, name, sequence — по схеме участков из тестовых данных
 AREAS = [

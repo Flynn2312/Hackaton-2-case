@@ -5,6 +5,8 @@ from typing import Any
 
 from asyncpg.pool import Pool
 
+from app.simulator import plant as P
+
 LEASE_SECONDS = 20  # владелец, молчащий дольше, теряет право генерировать
 
 
@@ -25,6 +27,9 @@ class SimStore:
             SELECT e.id, e.code, e.name, e.status, e.criticality, a.code AS area
             FROM public.equipment e JOIN public.production_areas a ON a.id = e.production_area_id
             WHERE a.factory_id = $1 ORDER BY e.id""", factory["id"])
+        # Новые модели из plant.CAR_MODELS добавляются в справочник при старте — без пересоздания данных
+        await self.pool.executemany(
+            "INSERT INTO public.car_models (name, code) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING", P.CAR_MODELS)
         models = await self.pool.fetch("SELECT id, code FROM public.car_models")
         return {
             "factory_id": factory["id"],
