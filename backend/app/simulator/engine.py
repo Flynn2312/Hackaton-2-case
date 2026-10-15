@@ -129,6 +129,7 @@ class PlantSimulator:
         self.st: dict = {}
         self.finished_rows: list[tuple[dict, dict]] = []  # итоговые значения закрытых часов, ждут сохранения
         self.decisions_enabled = True     # в прогнозе (forecast.py) инциденты не ждут решения оператора
+        self.fast_forward = False         # перемотка (×300 и выше): 30 мин на выбор — секунды, ИИ-решения не запрашиваем
         self.decision_requests: list[int] = []  # инциденты, для которых нужно сгенерировать варианты
         self.stats: defaultdict[str, float] = defaultdict(float)  # накопленные показатели — для прогноза
 
@@ -752,7 +753,7 @@ class PlantSimulator:
     @property
     def ai_decisions(self) -> bool:
         """Ждать ли решения оператора: выключатель в панели симуляции (в прогнозе всегда нет)."""
-        return self.decisions_enabled and self.st.get("ai_decisions", True)
+        return self.decisions_enabled and not self.fast_forward and self.st.get("ai_decisions", True)
 
     async def set_ai_decisions(self, enabled: bool) -> None:
         """Выключатель ИИ-решений. При выключении открытые выборы закрываются вариантом «ничего не менять»."""
