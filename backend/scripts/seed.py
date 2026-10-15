@@ -26,7 +26,8 @@ from app.core.database import get_supabase
 from app.simulator.plant import (
     AREA_NAMES, AREAS, CAR_MODELS, CRIT_WEIGHT, EQUIPMENT, EQUIPMENT_BY_CODE, FACTORY, HOURLY_PLAN,
     INITIAL_BUFFER, LINE_AREAS, MATERIAL_SHORTAGE_REASONS, MAX_BUFFER, QUALITY_INCIDENT_THRESHOLD, REASONS,
-    REWORK_RATE, SAFETY_INCIDENTS, SCRAP_RATE, SHIFT_MINUTES, TREND_REASONS, TZ, binomial, downtime_severity, poisson,
+    MODEL_QUALITY, REWORK_RATE, SAFETY_INCIDENTS, SCRAP_RATE, SHIFT_MINUTES, TREND_REASONS, TZ, binomial,
+    downtime_severity, poisson, shift_models,
 )
 
 SEED = 3
@@ -114,8 +115,7 @@ def build_shifts() -> list[ShiftData]:
             for number, hour in ((1, 8), (2, 16)):
                 start = datetime(day.year, day.month, day.day, hour, tzinfo=TZ)
                 s = ShiftData(len(shifts), day, number, start, start + timedelta(minutes=SHIFT_MINUTES))
-                last = "JAC-J7" if s.index % 2 == 0 else "CHEV-TRACKER"
-                s.models = ["CHEV-ONIX"] * 4 + ["CHEV-COBALT"] * 3 + [last]
+                s.models = shift_models(random.Random(SEED * 1000 + s.index))
                 shifts.append(s)
         day += timedelta(days=1)
     return shifts
@@ -211,7 +211,7 @@ def generate() -> dict:
                 else:
                     runtime = min(round(available), round(actual * 60 / (HOURLY_PLAN * perf)))
 
-                scrap_p = SCRAP_RATE[area] + (0.025 * cab02_trend if area == "PAINT" else 0)
+                scrap_p = (SCRAP_RATE[area] + (0.025 * cab02_trend if area == "PAINT" else 0)) * MODEL_QUALITY.get(model, 1.0)
                 rework_p = REWORK_RATE[area] + (0.02 * cab02_trend if area == "PAINT" else 0)
                 scrap = binomial(rng, actual, scrap_p)
                 rework = binomial(rng, actual - scrap, rework_p)
