@@ -35,16 +35,17 @@ CAR_MODELS = [
 
 # Смена — 8 часов, в каждый час линия выпускает одну модель. Основной объём — Onix и Cobalt (план кейса:
 # 2 500 и 1 800 в месяц), остальные модели идут короткими партиями в конце смены.
-# С вероятностью TWO_SLOTS_P смена отдаёт под партии два часа вместо одного (за счёт Cobalt).
-TWO_SLOTS_P = 0.3
+# С вероятностью TWO_SLOTS_P смена отдаёт под партии два часа вместо одного (за счёт Cobalt), и это две разные модели.
+# Доли партий близки к равным, чтобы каждая модель попадала в отчёт за неделю, а не раз в месяц.
+TWO_SLOTS_P = 0.5
 BATCH_MODELS = {  # доля часов-партий
-    "JAC-J7": 0.40,
-    "CHEV-TRACKER": 0.14,
-    "KIA-SPORTAGE": 0.14,
-    "JETOUR-X70PLUS": 0.10,
-    "KIA-CERATO": 0.08,
-    "JAC-S3": 0.08,
-    "BAIC-X55": 0.06,
+    "JAC-J7": 0.24,
+    "KIA-SPORTAGE": 0.13,
+    "JETOUR-X70PLUS": 0.13,
+    "BAIC-X55": 0.13,
+    "CHEV-TRACKER": 0.13,
+    "KIA-CERATO": 0.12,
+    "JAC-S3": 0.12,
 }
 
 # Множитель брака по модели: освоенные модели стабильнее, недавно запущенные (Jetour — 2025, BAIC — 2026)
@@ -61,7 +62,11 @@ def shift_models(rng: random.Random, available=None) -> list[str]:
     """Модель на каждый час смены. available — коды из справочника БД (модели, которых там нет, пропускаются)."""
     batch = {c: w for c, w in BATCH_MODELS.items() if available is None or c in available} or {"JAC-J7": 1.0}
     slots = 2 if rng.random() < TWO_SLOTS_P else 1
-    picks = rng.choices(list(batch), weights=list(batch.values()), k=slots)
+    picks = []
+    for _ in range(min(slots, len(batch))):  # без повторов: два часа-партии — две разные модели
+        code = rng.choices(list(batch), weights=list(batch.values()))[0]
+        picks.append(code)
+        batch = {c: w for c, w in batch.items() if c != code}
     return ["CHEV-ONIX"] * 4 + ["CHEV-COBALT"] * (4 - slots) + picks
 
 # code, name, sequence — по схеме участков из тестовых данных
