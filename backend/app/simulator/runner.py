@@ -31,6 +31,7 @@ SAVE_EVERY = 3.0      # с, сохранение состояния и прод�
 STANDBY_POLL = 10.0   # с, как часто инстанс без аренды пробует её забрать
 RETRY_AFTER = 10.0    # с, пауза после ошибки
 MAX_CATCHUP = 30      # шагов за итерацию при отставании
+FAST_FORWARD = 300    # с этой скорости — перемотка: инциденты не ждут ИИ-решения (окно выбора длится секунды)
 DEFAULT_SPEED = 30.0
 
 
@@ -126,6 +127,7 @@ class SimulatorRunner:
             debt = min(debt - steps, 1.0)
 
             async with self.lock:
+                self.engine.fast_forward = self.speed >= FAST_FORWARD
                 for _ in range(steps):
                     await self.engine.step()  # self.engine, а не локальный engine: reset() подменяет движок
                 if steps:
@@ -205,7 +207,8 @@ class SimulatorRunner:
         return {
             "sim_now": engine.now if engine else None, "speed": self.speed, "running": self.running,
             "buffers": engine.st.get("buffers") if engine else None,
-            "ai_decisions": engine.ai_decisions if engine else None,
+            # Выключатель из панели, а не фактическое состояние: на перемотке решения не запрашиваются, но флаг тот же
+            "ai_decisions": engine.st.get("ai_decisions", True) if engine else None,
         }
 
     # ---------------------------------------------------------------- управление

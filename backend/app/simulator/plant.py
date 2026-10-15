@@ -7,7 +7,7 @@
 
 import math
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 
 TZ = timezone(timedelta(hours=5))  # Asia/Qostanay
@@ -35,18 +35,16 @@ CAR_MODELS = [
 
 # Смена — 8 часов, в каждый час линия выпускает одну модель. Основной объём — Onix и Cobalt (план кейса:
 # 2 500 и 1 800 в месяц), остальные модели идут короткими партиями в конце смены.
-# С вероятностью TWO_SLOTS_P смена отдаёт под партии два часа вместо одного (за счёт Cobalt), и это две разные модели.
-# Доли партий близки к равным, чтобы каждая модель попадала в отчёт за неделю, а не раз в месяц.
-TWO_SLOTS_P = 0.5
-BATCH_MODELS = {  # доля часов-партий
-    "JAC-J7": 0.24,
-    "KIA-SPORTAGE": 0.13,
-    "JETOUR-X70PLUS": 0.13,
-    "BAIC-X55": 0.13,
-    "CHEV-TRACKER": 0.13,
-    "KIA-CERATO": 0.12,
-    "JAC-S3": 0.12,
-}
+# Партии идут по фиксированной очереди, а не случайно: дневная смена отдаёт под партию один час (последний),
+# вечерняя — два. За рабочий день 3 часа-партии, очередь из 8 мест проходит за 2–3 дня, поэтому каждая модель
+# гарантированно есть в отчёте за любую неделю. J7 стоит в очереди дважды — у него план кейса 500 в месяц.
+# Марки в очереди чередуются, чтобы подряд не шли две модели одной марки.
+BATCH_CYCLE = [
+    "JAC-J7", "KIA-SPORTAGE", "BAIC-X55", "CHEV-TRACKER",
+    "JAC-J7", "JETOUR-X70PLUS", "KIA-CERATO", "JAC-S3",
+]
+BATCH_SLOTS = {1: 1, 2: 2}  # номер смены -> часов под партии
+CYCLE_EPOCH = date(2026, 1, 5)  # понедельник, от которого считается очередь
 
 # Множитель брака по модели: освоенные модели стабильнее, недавно запущенные (Jetour — 2025, BAIC — 2026)
 # дают больше брака, пока не отлажены оснастка и программы роботов
@@ -58,15 +56,15 @@ MODEL_QUALITY = {
 }
 
 
-def shift_models(rng: random.Random, available=None) -> list[str]:
-    """Модель на каждый час смены. available — коды из справочника БД (модели, которых там нет, пропускаются)."""
-    batch = {c: w for c, w in BATCH_MODELS.items() if available is None or c in available} or {"JAC-J7": 1.0}
-    slots = 2 if rng.random() < TWO_SLOTS_P else 1
-    picks = []
-    for _ in range(min(slots, len(batch))):  # без повторов: два часа-партии — две разные модели
-        code = rng.choices(list(batch), weights=list(batch.values()))[0]
-        picks.append(code)
-        batch = {c: w for c, w in batch.items() if c != code}
+def shift_models(day: date, number: int, available=None) -> list[str]:
+    """Модель на каждый час смены. День и номер смены задают место в очереди партий — одинаково для сида,
+    симулятора и пересчёта истории. available — коды из справочника БД (модели, которых там нет, пропускаются)."""
+    cycle = [c for c in BATCH_CYCLE if available is None or c in available] or ["CHEV-COBALT"]
+    weeks, rest = divmod((day - CYCLE_EPOCH).days, 7)
+    workday = weeks * 5 + min(rest, 5)  # рабочих дней от начала отсчёта
+    slots = BATCH_SLOTS.get(number, 1)
+    first = workday * sum(BATCH_SLOTS.values()) + (0 if number == 1 else BATCH_SLOTS[1])
+    picks = [cycle[(first + k) % len(cycle)] for k in range(slots)]
     return ["CHEV-ONIX"] * 4 + ["CHEV-COBALT"] * (4 - slots) + picks
 
 # code, name, sequence — по схеме участков из тестовых данных

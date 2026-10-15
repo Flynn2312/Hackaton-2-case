@@ -112,7 +112,7 @@ function AreaLosses({ finance, sum, period, onPeriod }) {
 
       <div className="flex items-end justify-between gap-x-6 gap-y-2 flex-wrap">
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[13px] text-neutral-700">
-          <span>Итого <b className="num text-[22px] font-normal text-text">{fmtKzt(finance.total)}</b></span>
+          <span>Итого <b className="num text-[22px] text-text">{fmtKzt(finance.total)}</b></span>
           <span>простой {fmtKzt(finance.downtime)} · {fmtInt(finance.stopMin ?? 0)} мин</span>
           <span>брак и доработка {fmtKzt(finance.defect)} · {fmtInt(finance.defects ?? 0)} ед.</span>
           {finance.applied > 0 && (

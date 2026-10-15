@@ -115,7 +115,7 @@ def build_shifts() -> list[ShiftData]:
             for number, hour in ((1, 8), (2, 16)):
                 start = datetime(day.year, day.month, day.day, hour, tzinfo=TZ)
                 s = ShiftData(len(shifts), day, number, start, start + timedelta(minutes=SHIFT_MINUTES))
-                s.models = shift_models(random.Random(SEED * 1000 + s.index))
+                s.models = shift_models(day, number)
                 shifts.append(s)
         day += timedelta(days=1)
     return shifts
