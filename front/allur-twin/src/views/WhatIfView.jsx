@@ -146,17 +146,27 @@ function ForecastPanel({ forecast, stale, onRun }) {
   );
 }
 
+// Быстрые сценарии: [ключ, подпись кнопки]
+const PRESETS = [
+  ['paint-defect', 'Брак окраски'],
+  ['conveyor-break', 'Обрыв цепи (55 мин)'],
+  ['load-drop', 'Загрузка −15%'],
+  ['optimal', 'Оптимальный'],
+];
+
 export default function WhatIfView({ model, preset }) {
   const [st, setSt] = useState(() => (preset ? withPreset(initialState(model), preset) : initialState(model)));
   const [forecast, setForecast] = useState({ status: 'idle' });
+  const [activePreset, setActivePreset] = useState(null); // нажатый быстрый сценарий; гаснет при ручной правке рычагов
 
   const [prevPreset, setPrevPreset] = useState(preset);
   if (preset !== prevPreset) {
     setPrevPreset(preset);
     if (preset) setSt((prev) => withPreset(prev, preset));
+    setActivePreset(null);
   }
 
-  const set = (patch) => setSt((s) => ({ ...s, ...patch }));
+  const set = (patch) => { setSt((s) => ({ ...s, ...patch })); setActivePreset(null); };
   const request = toRequest(st);
   const stale = forecast.data && JSON.stringify(request) !== forecast.key;
 
@@ -173,6 +183,7 @@ export default function WhatIfView({ model, preset }) {
 
   // Быстрые сценарии в 1 клик
   const applyPresetScenario = (name) => {
+    setActivePreset(name === 'reset' ? null : name);
     const initial = initialState(model);
     if (name === 'paint-defect') {
       setSt({ ...initial, defectRate: Math.max(5.2, initial.defectRate), stoppedPaint: true });
@@ -195,18 +206,20 @@ export default function WhatIfView({ model, preset }) {
       >
         <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
           <span className="text-xs text-neutral-600 mr-1">Быстрые сценарии:</span>
-          <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('paint-defect')}>
-            Брак окраски
-          </button>
-          <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('conveyor-break')}>
-            Обрыв цепи (55 мин)
-          </button>
-          <button type="button" className="btn btn-secondary text-xs px-2.5 py-1 bg-white hover:bg-neutral-100" onClick={() => applyPresetScenario('load-drop')}>
-            Загрузка −15%
-          </button>
-          <button type="button" className="btn btn-primary text-xs px-2.5 py-1" onClick={() => applyPresetScenario('optimal')}>
-            Оптимальный
-          </button>
+          {PRESETS.map(([name, label]) => {
+            const active = activePreset === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                aria-pressed={active}
+                className={`btn text-xs px-2.5 py-1 ${active ? 'btn-primary' : 'btn-secondary bg-white hover:bg-neutral-100'}`}
+                onClick={() => applyPresetScenario(name)}
+              >
+                {label}
+              </button>
+            );
+          })}
           <button type="button" className="btn btn-ghost text-xs px-2 py-1 text-neutral-600" onClick={() => applyPresetScenario('reset')}>
             Сброс
           </button>
