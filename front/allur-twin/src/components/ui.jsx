@@ -1,3 +1,5 @@
+import { S } from '../lib/format';
+
 export const Corners = () => (
   <>
     <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
@@ -51,6 +53,25 @@ export function Slider({ label, value, display, min, max, step = 1, onChange, hi
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(+e.target.value)} />
       {marks && <div className="flex justify-between gap-1 text-[10px] sm:text-[11px] text-neutral-700">{marks.map((m) => <span key={m}>{m}</span>)}</div>}
       {hint && <div className="text-[11px] text-neutral-700">{hint}</div>}
+    </div>
+  );
+}
+
+// Строка KPI: плашки с цветной точкой статуса, значением и нормативом
+export function KpiRow({ items, className = '' }) {
+  return (
+    <div className={`grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2 sm:gap-3 ${className}`}>
+      {items.map((k) => (
+        <div key={k.l} className="min-w-0 px-4 py-3 sm:px-5 sm:py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
+          <div className="flex items-center gap-2 text-[13px] text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: S[k.st].fill }} />{k.l}
+          </div>
+          <div className="flex items-baseline gap-x-2 flex-wrap">
+            <span className="num whitespace-nowrap text-[22px] sm:text-[28px] leading-[1.1]" style={{ color: k.st === 'g' ? 'var(--color-text)' : S[k.st].ink }}>{k.v}</span>
+            <span className="text-xs text-neutral-700 whitespace-nowrap">{k.n}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

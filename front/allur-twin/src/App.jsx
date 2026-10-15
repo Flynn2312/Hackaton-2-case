@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveTwin } from './lib/live';
-import { S } from './lib/format';
+import { KpiRow } from './components/ui';
 import FlowView from './views/FlowView';
+import SummaryView from './views/SummaryView';
 import FinanceView from './views/FinanceView';
 import WhatIfView from './views/WhatIfView';
 import IncidentsView from './views/IncidentsView';
@@ -24,6 +25,8 @@ export default function App({ initialView = 'flow' }) {
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [decisionId, setDecisionId] = useState(null);
+  // Период «Сводки» и «Финансов» — общий: переключили на одной вкладке, видно и на другой
+  const [period, setPeriod] = useState({ kind: 'day', offset: 0 });
   const seenDecisions = useRef(new Set());
 
   // Текущая вкладка — в адресе: перезагрузка и ссылки с лендинга открывают её же
@@ -53,6 +56,7 @@ export default function App({ initialView = 'flow' }) {
   // [вкладка, подпись, короткая подпись для телефона, бейдж]
   const nav = [
     ['flow', 'Живой завод', 'Завод', model?.flowBadge],
+    ['summary', 'Сводка', null],
     ['money', 'Финансы', null],
     ['whatif', 'What-If', null],
     ['log', 'Инциденты', null, model?.incBadge],
@@ -113,19 +117,8 @@ export default function App({ initialView = 'flow' }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2 sm:gap-3 px-4 md:px-7 pt-5">
-            {(view === 'money' ? model.finance.kpis : model.kpis).map((k) => (
-              <div key={k.l} className="min-w-0 px-4 py-3 sm:px-5 sm:py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
-                <div className="flex items-center gap-2 text-[13px] text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: S[k.st].fill }} />{k.l}
-                </div>
-                <div className="flex items-baseline gap-x-2 flex-wrap">
-                  <span className="num whitespace-nowrap text-[22px] sm:text-[28px] leading-[1.1]" style={{ color: k.st === 'g' ? 'var(--color-text)' : S[k.st].ink }}>{k.v}</span>
-                  <span className="text-xs text-neutral-700 whitespace-nowrap">{k.n}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Шапка KPI — всегда текущие сутки; итоги за период — на «Сводке» и в «Финансах» */}
+          <KpiRow items={view === 'money' ? model.finance.kpis : model.kpis} className="px-4 md:px-7 pt-5" />
 
           {view === 'flow' && (
             <FlowView
@@ -134,7 +127,8 @@ export default function App({ initialView = 'flow' }) {
               onOpenEquipment={(eq, a) => setSelectedEquipment({ equipment: eq, area: a })}
             />
           )}
-          {view === 'money' && <FinanceView model={model} simNow={simNow} onOpen={setSel} onOpenDecision={openDecision} />}
+          {view === 'summary' && <SummaryView model={model} period={period} onPeriod={setPeriod} />}
+          {view === 'money' && <FinanceView model={model} simNow={simNow} period={period} onPeriod={setPeriod} onOpenDecision={openDecision} />}
           {view === 'whatif' && <WhatIfView model={model} preset={whatIf} />}
           {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
           {view === 'chat' && <AssistantView model={model} request={chatRequest} />}

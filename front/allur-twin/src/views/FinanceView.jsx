@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Blueprint } from '../components/ui';
+import PeriodPicker from '../components/PeriodPicker';
+import { usePeriodSummary } from '../lib/period';
 import { ECON } from '../lib/model';
-import { S, fmtDayLong, fmtInt, fmtKzt, fmtTime } from '../lib/format';
+import { S, fmtInt, fmtKzt, fmtTime } from '../lib/format';
 
-// «Финансы»: сколько линия теряет прямо сейчас и куда уходят деньги по участкам за сутки.
-// KPI в тенге выводятся в общей строке KPI над вкладкой (App.jsx).
+// «Финансы»: сколько линия теряет прямо сейчас и куда уходят деньги по участкам за выбранный период.
+// KPI в тенге за текущие сутки выводятся в общей строке KPI над вкладкой (App.jsx).
 const DOWNTIME = 'var(--color-accent-800)';
 const DEFECT = 'var(--color-accent-400)';
 
-export default function FinanceView({ model, simNow, onOpen, onOpenDecision }) {
+export default function FinanceView({ model, simNow, period, onPeriod, onOpenDecision }) {
+  const sum = usePeriodSummary(model, period);
   return (
     <main className="px-4 md:px-7 pt-6 pb-10 flex flex-col gap-7 min-w-0">
       <LiveLoss stops={model.finance.stops} anchor={model.anchor} simNow={simNow} pending={model.pendingDecisions.length} onOpenDecision={onOpenDecision} />
-      <AreaLosses finance={model.finance} day={model.day} onOpen={onOpen} />
+      <AreaLosses finance={sum?.finance ?? model.finance} sum={sum} period={period} onPeriod={onPeriod} />
     </main>
   );
 }
@@ -72,7 +75,7 @@ function LiveLoss({ stops, anchor, simNow, pending, onOpenDecision }) {
 
 /* ───────── Куда уходят деньги ───────── */
 
-function AreaLosses({ finance, day, onOpen }) {
+function AreaLosses({ finance, sum, period, onPeriod }) {
   const max = Math.max(...finance.areas.map((a) => a.total), 1);
   const top = finance.total > 0 ? [...finance.areas].sort((a, b) => b.total - a.total)[0] : null;
   return (
@@ -80,7 +83,19 @@ function AreaLosses({ finance, day, onOpen }) {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h3>Куда уходят деньги</h3>
-          <div className="text-[13px] text-neutral-700">Прямые потери участков за сутки · нажмите на участок, чтобы увидеть подробности · данные на {fmtDayLong(day)}</div>
+          <div className="text-[13px] text-neutral-700">Прямые потери участков за период</div>
+        </div>
+        <PeriodPicker value={period} onChange={onPeriod} period={sum?.period} />
+      </div>
+
+      <div className="flex items-end justify-between gap-x-6 gap-y-2 flex-wrap">
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[13px] text-neutral-700">
+          <span>Итого <b className="num text-[22px] font-normal text-text">{fmtKzt(finance.total)}</b></span>
+          <span>простой {fmtKzt(finance.downtime)} · {fmtInt(finance.stopMin ?? 0)} мин</span>
+          <span>брак и доработка {fmtKzt(finance.defect)} · {fmtInt(finance.defects ?? 0)} ед.</span>
+          {finance.applied > 0 && (
+            <span>эффект решений ИИ <b className="font-medium" style={{ color: finance.aiEffect < 0 ? S.y.ink : S.g.ink }}>{finance.aiEffect > 0 ? '+' : finance.aiEffect < 0 ? '−' : ''}{fmtKzt(Math.abs(finance.aiEffect))}</b> ({finance.applied})</span>
+          )}
         </div>
         <div className="flex gap-4 text-xs text-neutral-700">
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5" style={{ background: DOWNTIME }} />простой</span>
@@ -90,11 +105,9 @@ function AreaLosses({ finance, day, onOpen }) {
 
       <Blueprint className="px-4 py-2 sm:p-[18px] flex flex-col">
         {finance.areas.map((a) => (
-          <button
+          <div
             key={a.id}
-            type="button"
-            onClick={() => onOpen(a.id)}
-            className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(140px,200px)_minmax(0,1fr)_110px] items-center gap-x-4 gap-y-2 text-left border-t border-divider first:border-t-0 py-3 hover:bg-neutral-100 transition-colors"
+            className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(140px,200px)_minmax(0,1fr)_110px] items-center gap-x-4 gap-y-2 border-t border-divider first:border-t-0 py-3"
           >
             <span className="flex flex-col min-w-0">
               <span className="flex flex-wrap items-center gap-2 font-medium text-[15px]">
@@ -110,7 +123,7 @@ function AreaLosses({ finance, day, onOpen }) {
               <span className="transition-[width] duration-500" style={{ width: `${(a.defectKzt / max) * 100}%`, background: DEFECT }} />
             </span>
             <span className="num text-lg text-right whitespace-nowrap" style={{ color: a.total ? 'var(--color-text)' : 'var(--color-neutral-600)' }}>{fmtKzt(a.total)}</span>
-          </button>
+          </div>
         ))}
       </Blueprint>
 

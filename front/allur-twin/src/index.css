@@ -136,3 +136,12 @@
 
   .num { font-family: var(--font-heading); font-weight: 600; font-variant-numeric: tabular-nums; }
 }
+
+/* Печатная форма отчёта («Сводка» → «Скачать отчёт» → PDF): на печать идёт только она */
+.print-only { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm 11mm; }
+  html, body { background: #fff; }
+  body > *:not(.print-only) { display: none !important; }
+  .print-only { display: block; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
