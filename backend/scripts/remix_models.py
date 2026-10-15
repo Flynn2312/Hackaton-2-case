@@ -7,13 +7,13 @@
 
 Что делает:
 - добавляет недостающие модели в car_models;
-- для каждой завершённой смены заново раскладывает модели по часам (plant.shift_models, детерминированно
-  по id смены) и переписывает car_model_id почасовых записей выработки и качества;
+- для каждой завершённой смены заново раскладывает модели по часам (plant.shift_models — очередь партий
+  по дню и номеру смены) и переписывает car_model_id почасовых записей выработки и качества;
 - в часы, где модель сменилась, брак масштабируется отношением множителей plant.MODEL_QUALITY, годные пересчитываются;
 - пересобирает план смены по моделям (production_plans) по тем часам, что есть в записях.
 
 Объёмы выпуска, простои и инциденты не меняются. Идущая смена не трогается — её пишет симулятор.
-Повторный запуск ничего не меняет: раскладка по id смены всегда одна и та же.
+Повторный запуск ничего не меняет: раскладка по дню и номеру смены всегда одна и та же.
 """
 
 import asyncio
@@ -25,9 +25,7 @@ from datetime import timedelta
 import asyncpg
 
 from app.core.config import get_settings
-from app.simulator.plant import CAR_MODELS, HOURLY_PLAN, MODEL_QUALITY, shift_models
-
-SALT = 7919  # отделяет раскладку истории от живого генератора
+from app.simulator.plant import CAR_MODELS, HOURLY_PLAN, MODEL_QUALITY, TZ, shift_models
 
 
 def round_random(rng: random.Random, v: float) -> int:
@@ -61,7 +59,9 @@ async def main(apply: bool) -> None:
 
         # Новая раскладка: модель на каждый час смены
         start = {s["id"]: s["start_at"] for s in done}
-        plan_for = {s["id"]: shift_models(random.Random(SALT * 100_000 + s["id"]), model_ids) for s in done}
+        # Номер смены — по времени начала: дневная с 08:00, вечерняя с 16:00
+        plan_for = {s["id"]: shift_models(s["start_at"].astimezone(TZ).date(), 1 if s["start_at"].astimezone(TZ).hour < 12 else 2,
+                                          model_ids) for s in done}
 
         def model_at(row) -> int:
             hour = int((row["timestamp"] - start[row["shift_id"]]) / timedelta(hours=1))

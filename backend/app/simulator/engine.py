@@ -252,7 +252,7 @@ class PlantSimulator:
 
     async def _start_shift(self, number: int, start: datetime, end: datetime, t: datetime) -> None:
         rng = self.rng
-        models = P.shift_models(rng, self.refs["model_ids"])
+        models = P.shift_models(start.astimezone(P.TZ).date(), number, self.refs["model_ids"])
         first_hour = int((t - start) / HOUR)  # если стартовали посреди смены — план только на оставшиеся часы
         remaining = models[first_hour:]
 
