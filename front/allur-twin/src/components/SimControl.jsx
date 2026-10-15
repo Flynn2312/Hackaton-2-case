@@ -64,13 +64,13 @@ export default function SimControl({ sim, connected, simNow, control }) {
         type="button"
         onClick={toggle}
         aria-expanded={!!open}
-        className="flex items-center gap-2.5 px-2.5 py-1 hover:bg-neutral-200"
+        className="flex items-center gap-2 sm:gap-2.5 px-1.5 sm:px-2.5 py-1 hover:bg-neutral-200"
         title="Время завода и управление симуляцией"
       >
         <span className="w-[7px] h-[7px] rounded-full animate-pulse-dot" style={{ background: st ? S[st].fill : 'var(--color-neutral-500)' }} />
         <span className="flex flex-col items-end leading-tight">
           <span className="num text-xl text-text">{fmtTime(now)}</span>
-          <span className="text-[10px] tracking-[.06em] uppercase text-neutral-700">{fmtDate(now)} · {state}</span>
+          <span className="hidden sm:block text-[10px] tracking-[.06em] uppercase text-neutral-700">{fmtDate(now)} · {state}</span>
         </span>
       </button>
 

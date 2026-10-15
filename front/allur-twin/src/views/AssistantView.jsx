@@ -17,8 +17,9 @@ export default function AssistantView({ model, request }) {
   const handled = useRef(null);
   const bottom = useRef(null);
 
+  // К новому сообщению — только когда диалог начался: при открытии вкладки страница остаётся наверху
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (msgs.length > 1 || thinking) bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [msgs, thinking]);
 
   const ask = async (q, areaId = ctx) => {
@@ -59,20 +60,20 @@ export default function AssistantView({ model, request }) {
   const suggestions = lastAi?.followups?.length ? lastAi.followups : presets(model);
 
   return (
-    <main className="px-7 pt-6 pb-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-7 items-start">
-      <Blueprint className="flex flex-col min-h-[600px]">
-        <div className="px-[18px] py-3.5 border-b border-divider flex justify-between items-baseline gap-3">
+    <main className="px-4 md:px-7 pt-6 pb-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-7 items-start">
+      <Blueprint className="flex flex-col min-h-[70vh] lg:min-h-[600px] min-w-0">
+        <div className="px-4 sm:px-[18px] py-3.5 border-b border-divider flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1">
           <div>
             <h4>ИИ Ассистент</h4>
             <div className="text-xs text-neutral-700">Отвечает только о работе завода и только по данным цифрового двойника</div>
           </div>
           <span className="text-xs text-neutral-700 shrink-0">Контекст: {ctxArea ? ctxArea.name : 'вся линия'}</span>
         </div>
-        <div className="flex-1 p-[18px] flex flex-col gap-3.5">
+        <div className="flex-1 p-3 sm:p-[18px] flex flex-col gap-3.5 min-w-0">
           {msgs.map((m, i) => (
             <div key={i} className={`flex ${m.me ? 'justify-end' : 'justify-start'}`}>
               <div
-                className="max-w-[78%] px-3.5 py-2.5 text-sm leading-[1.5] whitespace-pre-line text-pretty"
+                className="max-w-[90%] sm:max-w-[78%] min-w-0 break-words px-3.5 py-2.5 text-sm leading-[1.5] whitespace-pre-line text-pretty"
                 style={{
                   background: m.me ? 'var(--color-accent)' : m.offTopic ? 'var(--color-neutral-200)' : 'transparent',
                   color: m.me ? 'var(--color-bg)' : 'var(--color-text)',
@@ -93,12 +94,12 @@ export default function AssistantView({ model, request }) {
           )}
           <div ref={bottom} />
         </div>
-        <div className="px-[18px] py-3 flex gap-2 flex-wrap border-t border-divider">
+        <div className="px-3 sm:px-[18px] py-3 flex gap-2 flex-wrap border-t border-divider">
           {suggestions.map((q) => (
-            <button key={q} type="button" className="btn btn-secondary text-[13px]" disabled={thinking} onClick={() => ask(q)}>{q}</button>
+            <button key={q} type="button" className="btn btn-secondary text-[13px] text-left max-w-full whitespace-normal" disabled={thinking} onClick={() => ask(q)}>{q}</button>
           ))}
         </div>
-        <div className="px-[18px] pb-[18px] flex gap-2.5">
+        <div className="px-3 sm:px-[18px] pb-3 sm:pb-[18px] flex gap-2">
           <input
             className="input"
             value={draft}

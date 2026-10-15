@@ -161,10 +161,10 @@ function PlantFlow({ areas, equipment }) {
         const st = equipment.length ? areaStatus(eqs) : null;
         const running = eqs.filter((e) => e.status === 'running').length;
         return (
-          <div key={a.id} className="relative bg-bg rounded-2xl p-4 flex flex-col gap-3 min-h-[150px] overflow-hidden shadow-[var(--shadow-card)]">
+          <div key={a.id} className="relative min-w-0 bg-bg rounded-2xl p-4 flex flex-col gap-3 min-h-[130px] sm:min-h-[150px] overflow-hidden shadow-[var(--shadow-card)]">
             <div className="h-1 -mx-4 -mt-4" style={{ background: st ? S[st].fill : 'var(--color-neutral-300)' }} />
             <span className="num text-[13px] text-neutral-600">{String(i + 1).padStart(2, '0')}</span>
-            <span className="font-heading font-semibold text-xl leading-tight">{a.name}</span>
+            <span className="font-heading font-semibold text-base sm:text-xl leading-tight break-words hyphens-auto min-w-0">{a.name}</span>
             <span className="mt-auto text-xs text-neutral-700">
               {st ? `${S[st].l} · ${running}/${eqs.length} в работе` : 'нет данных'}
             </span>
@@ -271,8 +271,8 @@ export default function LandingView() {
       >
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {PROBLEMS.map((p) => (
-            <div key={p.l} className="bg-bg rounded-2xl p-5 flex flex-col gap-1 shadow-[var(--shadow-card)]">
-              <span className="num text-[40px] leading-none" style={{ color: S.r.ink }}>{p.v}</span>
+            <div key={p.l} className="min-w-0 bg-bg rounded-2xl p-4 sm:p-5 flex flex-col gap-1 shadow-[var(--shadow-card)]">
+              <span className="num text-[30px] sm:text-[40px] leading-none whitespace-nowrap" style={{ color: S.r.ink }}>{p.v}</span>
               <span className="font-medium">{p.l}</span>
               <span className="text-xs text-neutral-700">{p.n}</span>
             </div>
@@ -335,7 +335,7 @@ export default function LandingView() {
         <div className="grid md:grid-cols-3 gap-3">
           {levers.map((l) => (
             <div key={l.l} className="bg-bg rounded-2xl p-6 flex flex-col gap-1 shadow-[var(--shadow-card)]">
-              <span className="num text-[40px] leading-none">{l.v}</span>
+              <span className="num text-[32px] sm:text-[40px] leading-none">{l.v}</span>
               <span className="font-medium">{l.l}</span>
               <span className="text-xs text-neutral-700">{l.n}</span>
             </div>

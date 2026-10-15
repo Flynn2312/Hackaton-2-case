@@ -10,7 +10,7 @@ const DEFECT = 'var(--color-accent-400)';
 
 export default function FinanceView({ model, simNow, onOpen, onOpenDecision }) {
   return (
-    <main className="px-7 pt-6 pb-10 flex flex-col gap-7">
+    <main className="px-4 md:px-7 pt-6 pb-10 flex flex-col gap-7 min-w-0">
       <LiveLoss stops={model.finance.stops} anchor={model.anchor} simNow={simNow} pending={model.pendingDecisions.length} onOpenDecision={onOpenDecision} />
       <AreaLosses finance={model.finance} day={model.day} onOpen={onOpen} />
     </main>
@@ -34,7 +34,7 @@ function LiveLoss({ stops, anchor, simNow, pending, onOpenDecision }) {
 
   if (!active) {
     return (
-      <section className="bg-bg rounded-2xl px-6 py-5 flex items-center gap-5 flex-wrap shadow-[var(--shadow-card)] opacity-60">
+      <section className="bg-bg rounded-2xl px-4 sm:px-6 py-5 flex items-center gap-5 flex-wrap shadow-[var(--shadow-card)] opacity-60">
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-2 text-[13px] text-neutral-700">
             <span className="w-2 h-2 rounded-full bg-neutral-400" />Линия теряет сейчас
@@ -47,24 +47,24 @@ function LiveLoss({ stops, anchor, simNow, pending, onOpenDecision }) {
   }
 
   return (
-    <section className="bg-bg rounded-2xl border px-6 py-5 flex gap-x-10 gap-y-4 flex-wrap shadow-[var(--shadow-card)]" style={{ borderColor: S.r.fill }}>
+    <section className="bg-bg rounded-2xl border px-4 sm:px-6 py-5 flex gap-x-10 gap-y-4 flex-wrap shadow-[var(--shadow-card)]" style={{ borderColor: S.r.fill }}>
       <div className="flex flex-col gap-1">
         <span className="flex items-center gap-2 text-[13px]" style={{ color: S.r.ink }}>
           <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: S.r.fill }} />Линия теряет сейчас
         </span>
-        <span className="num text-[40px] leading-[1.05]" style={{ color: S.r.ink }}>{fmtInt(lost)} ₸</span>
+        <span className="num text-[32px] sm:text-[40px] leading-[1.05] break-all" style={{ color: S.r.ink }}>{fmtInt(lost)} ₸</span>
         <span className="text-xs text-neutral-700">{fmtInt(rate)} ₸ за минуту завода</span>
       </div>
-      <div className="flex-1 min-w-[260px] flex flex-col justify-center gap-2">
+      <div className="flex-1 min-w-0 basis-[260px] flex flex-col justify-center gap-2">
         {stops.map((x) => (
-          <div key={x.id} className="flex items-baseline justify-between gap-4 text-[14px] border-t border-divider pt-2 first:border-t-0 first:pt-0">
+          <div key={x.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-[14px] border-t border-divider pt-2 first:border-t-0 first:pt-0">
             <span><b className="font-medium">{x.name}</b> · {x.area} — {x.reason.toLowerCase()}, стоит с {fmtTime(x.startedAt)}</span>
             <span className="text-xs text-neutral-700 whitespace-nowrap">{fmtInt(x.rate)} ₸/мин</span>
           </div>
         ))}
       </div>
       {pending > 0 && (
-        <button type="button" className="btn btn-primary self-center" onClick={() => onOpenDecision()}>Выбрать решение</button>
+        <button type="button" className="btn btn-primary self-center w-full sm:w-auto" onClick={() => onOpenDecision()}>Выбрать решение</button>
       )}
     </section>
   );
@@ -88,16 +88,16 @@ function AreaLosses({ finance, day, onOpen }) {
         </div>
       </div>
 
-      <Blueprint className="p-[18px] flex flex-col">
+      <Blueprint className="px-4 py-2 sm:p-[18px] flex flex-col">
         {finance.areas.map((a) => (
           <button
             key={a.id}
             type="button"
             onClick={() => onOpen(a.id)}
-            className="grid grid-cols-[minmax(140px,200px)_minmax(0,1fr)_110px] items-center gap-4 text-left border-t border-divider first:border-t-0 py-3 hover:bg-neutral-100 transition-colors"
+            className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(140px,200px)_minmax(0,1fr)_110px] items-center gap-x-4 gap-y-2 text-left border-t border-divider first:border-t-0 py-3 hover:bg-neutral-100 transition-colors"
           >
-            <span className="flex flex-col">
-              <span className="flex items-center gap-2 font-medium text-[15px]">
+            <span className="flex flex-col min-w-0">
+              <span className="flex flex-wrap items-center gap-2 font-medium text-[15px]">
                 {a.name}
                 {a.id === top?.id && <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand text-white">больше всего</span>}
               </span>
@@ -105,7 +105,7 @@ function AreaLosses({ finance, day, onOpen }) {
                 {a.total ? [a.downtimeMin && `${fmtInt(a.downtimeMin)} мин простоя`, a.defects && `брак ${fmtInt(a.defects)} ед.`].filter(Boolean).join(' · ') : 'без потерь'}
               </span>
             </span>
-            <span className="flex h-3 rounded-full overflow-hidden bg-neutral-200" title={`простой ${fmtKzt(a.downtimeKzt)} · брак ${fmtKzt(a.defectKzt)}`}>
+            <span className="col-span-2 sm:col-span-1 order-last sm:order-none flex h-3 rounded-full overflow-hidden bg-neutral-200" title={`простой ${fmtKzt(a.downtimeKzt)} · брак ${fmtKzt(a.defectKzt)}`}>
               <span className="transition-[width] duration-500" style={{ width: `${(a.downtimeKzt / max) * 100}%`, background: DOWNTIME }} />
               <span className="transition-[width] duration-500" style={{ width: `${(a.defectKzt / max) * 100}%`, background: DEFECT }} />
             </span>

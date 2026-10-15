@@ -77,20 +77,20 @@ function ForecastPanel({ forecast, stale, onRun }) {
   const st = r ? TONE[r.tone] ?? 'y' : null;
 
   return (
-    <Blueprint className="p-5 flex flex-col gap-4 bg-bg">
-      <div className="flex items-start justify-between gap-4 border-b border-divider pb-3">
+    <Blueprint className="p-4 sm:p-5 flex flex-col gap-4 bg-bg min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-divider pb-3">
         <div>
           <h4 className="font-heading font-bold text-xl">Прогноз ИИ</h4>
           <div className="text-xs text-neutral-600">Сценарий проигрывается на копии живого завода: 8 часов работы линии со сценарием и без него</div>
         </div>
-        <button type="button" className="btn btn-primary shrink-0 px-5" onClick={onRun} disabled={loading}>
+        <button type="button" className="btn btn-primary shrink-0 px-5 w-full sm:w-auto" onClick={onRun} disabled={loading}>
           {loading ? 'Прогнозирую…' : r ? 'Спрогнозировать заново' : 'Спрогнозировать'}
         </button>
       </div>
 
       {forecast.status === 'idle' && (
         <div className="text-sm text-neutral-700 leading-[1.5]">
-          Задайте параметры слева — простой, загрузку, брак, аварии узлов, буфер, ТО — и нажмите «Спрогнозировать».
+          Задайте параметры — простой, загрузку, брак, аварии узлов, буфер, ТО — и нажмите «Спрогнозировать».
           ИИ коротко объяснит, к чему приведёт сценарий, почему и что делать.
         </div>
       )}
@@ -123,9 +123,9 @@ function ForecastPanel({ forecast, stale, onRun }) {
 
           <div className="grid grid-cols-2 border-t border-l border-divider">
             {r.key_figures.map((k) => (
-              <div key={k.label} className="px-3.5 py-3 border-r border-b border-divider flex flex-col gap-0.5">
+              <div key={k.label} className="min-w-0 px-3 sm:px-3.5 py-3 border-r border-b border-divider flex flex-col gap-0.5">
                 <span className="text-xs text-neutral-700">{k.label}</span>
-                <span className="num text-2xl leading-tight">{k.value}</span>
+                <span className="num text-xl sm:text-2xl leading-tight break-words">{k.value}</span>
                 <span className="text-xs font-semibold" style={{ color: S[TONE[k.tone] ?? 'y'].ink }}>{k.change}</span>
               </div>
             ))}
@@ -188,7 +188,7 @@ export default function WhatIfView({ model, preset }) {
   };
 
   return (
-    <main className="px-7 pt-6 pb-12 flex flex-col gap-6">
+    <main className="px-4 md:px-7 pt-6 pb-12 flex flex-col gap-6 min-w-0">
       <PageTitle
         title="Сценарный тренажёр: Что будет, если? (What-If Simulation)"
         sub="Смоделируйте управленческие воздействия до их применения на реальном заводе Allur"
@@ -198,7 +198,7 @@ export default function WhatIfView({ model, preset }) {
       <Blueprint className="p-4 bg-accent-100/60 border-accent-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div>
-            <div className="font-heading font-bold text-lg text-accent-900 tracking-wide">
+            <div className="font-heading font-bold text-base sm:text-lg text-accent-900">
               «Большинство систем показывают, что уже произошло. Наш цифровой двойник позволяет проверить, что произойдёт дальше».
             </div>
             <div className="text-xs text-neutral-700 mt-0.5">
@@ -229,8 +229,8 @@ export default function WhatIfView({ model, preset }) {
 
       {/* Основная рабочая область: слева рычаги, справа прогноз ИИ */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.25fr)] gap-7 items-start">
-        <Blueprint className="p-5 flex flex-col gap-5 bg-bg">
-          <div className="flex items-center justify-between border-b border-divider pb-2.5">
+        <Blueprint className="p-4 sm:p-5 flex flex-col gap-5 bg-bg min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 border-b border-divider pb-2.5">
             <h4 className="font-heading font-bold text-xl">Параметры симуляции</h4>
             <span className="text-xs text-neutral-600">Воздействие на виртуальную копию</span>
           </div>

@@ -142,7 +142,7 @@ function DecisionBody({ decision: d, simNow, sim, onDecide, busy, error }) {
           )}
 
           <div className="overflow-x-auto -mx-1">
-            <table className="w-full border-collapse text-[13px] min-w-[400px]">
+            <table className="w-full border-collapse text-[13px] min-w-[360px]">
               <thead>
                 <tr>
                   <th className="text-left font-normal text-[11px] text-neutral-700 px-1 py-2 align-bottom w-[32%]">Прогноз на {p.horizon_min / 60} ч</th>
@@ -261,7 +261,7 @@ export default function DecisionPanel({ model, sim, simNow, selectedId, onSelect
   };
 
   return (
-    <aside className="fixed top-14 right-0 bottom-0 w-[min(500px,100vw)] bg-bg border-l border-divider shadow-lg z-30 flex flex-col" aria-label="Решения по инцидентам">
+    <aside className="fixed top-0 md:top-16 right-0 bottom-0 w-[min(500px,100vw)] bg-bg border-l border-divider shadow-lg z-40 flex flex-col" aria-label="Решения по инцидентам">
       <div className="px-5 py-3 border-b border-divider flex items-center justify-between gap-3">
         <div>
           <div className="font-heading font-semibold text-lg leading-tight">Решения по инцидентам</div>
@@ -293,7 +293,7 @@ export default function DecisionPanel({ model, sim, simNow, selectedId, onSelect
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
         {selected
           ? <DecisionBody key={selected.id} decision={selected} simNow={simNow} sim={sim} onDecide={decide} busy={busy} error={error} />
           : <div className="text-sm text-neutral-700">Когда на линии случится отказ, брак или нехватка комплектующих, здесь появятся варианты решения от ИИ.</div>}
