@@ -11,6 +11,7 @@ import EquipmentPassportModal from './components/EquipmentPassportModal';
 import SimControl from './components/SimControl';
 import Toasts from './components/Toasts';
 import DecisionPanel from './components/DecisionPanel';
+import TabBar from './components/TabBar';
 import { appHref } from './lib/route';
 
 export default function App({ initialView = 'flow' }) {
@@ -49,55 +50,40 @@ export default function App({ initialView = 'flow' }) {
     else if (n.area_id != null) { setView('flow'); setLogArea(null); setSel(n.area_id); }
   };
 
+  // [вкладка, подпись, короткая подпись для телефона, бейдж]
   const nav = [
-    ['flow', 'Живой завод', model?.flowBadge],
-    ['money', 'Финансы'],
-    ['whatif', 'What-If'],
-    ['log', 'Инциденты', model?.incBadge],
-    ['chat', 'ИИ Ассистент'],
+    ['flow', 'Живой завод', 'Завод', model?.flowBadge],
+    ['money', 'Финансы', null],
+    ['whatif', 'What-If', null],
+    ['log', 'Инциденты', null, model?.incBadge],
+    ['chat', 'ИИ Ассистент', 'Ассистент'],
   ];
 
   const selArea = model && sel != null ? model.areas.find((a) => a.id === sel) : null;
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center gap-6 px-7 h-16 whitespace-nowrap overflow-hidden bg-bg border-b border-divider">
-        <div className="flex items-baseline gap-2.5">
+      <header className="flex flex-wrap md:flex-nowrap items-center gap-x-2 sm:gap-x-3 md:gap-x-6 px-4 md:px-7 md:h-16 whitespace-nowrap overflow-hidden bg-bg border-b border-divider">
+        <div className="flex items-center md:items-baseline gap-2.5 shrink-0 h-14 md:h-auto">
           <a href="#/" className="flex items-baseline gap-1 leading-none" title="На главную">
             <span className="font-bold text-[28px] tracking-[-0.05em] text-brand">allur</span>
             <span className="font-medium text-[17px] tracking-[-0.02em] text-neutral-600">twin</span>
           </a>
-          <span className="text-xs text-neutral-700">{model ? model.factory.location.split(',').pop().trim() : 'Костанай'} · линия 1</span>
+          <span className="hidden lg:inline text-xs text-neutral-700">{model ? model.factory.location.split(',').pop().trim() : 'Костанай'} · линия 1</span>
         </div>
-        <nav className="flex h-full shrink-0">
-          {nav.map(([k, label, badge]) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => go(k)}
-              className="h-full flex items-center gap-2 px-3.5 text-[14px] font-medium transition-colors hover:text-text"
-              style={{ boxShadow: view === k ? 'inset 0 -2px 0 var(--color-brand)' : undefined, color: view === k ? 'var(--color-text)' : 'var(--color-neutral-600)' }}
-            >
-              <span>{label}</span>
-              {badge?.n > 0 && (
-                <span className="text-[11px] font-semibold min-w-5 h-5 px-1.5 rounded-full grid place-items-center" style={{ background: S[badge.st].tint, color: S[badge.st].ink }}>{badge.n}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="ml-auto flex items-center gap-[18px] text-[13px] text-neutral-700 min-w-0">
-          <span className="flex items-center gap-[18px] min-w-0 overflow-hidden text-ellipsis">
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-[7px] h-[7px] rounded-full" style={{ background: error ? S.r.fill : S.g.fill }} />
-              {error ? 'API недоступен' : `API · ${model ? model.stats.records.toLocaleString('ru-RU') : '…'} записей`}
-            </span>
-            <span className="overflow-hidden text-ellipsis">{model?.lastShiftLabel ?? 'загрузка смены…'}</span>
-          </span>
+        <TabBar
+          items={nav}
+          value={view}
+          onChange={go}
+          className="order-last md:order-none w-[calc(100%+2rem)] md:w-auto h-11 md:h-full -mx-4 md:mx-0 min-w-0 border-t border-divider md:border-t-0"
+        />
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3 md:gap-[18px] text-[13px] text-neutral-700 shrink-0">
+          <span className="hidden xl:block min-w-0 overflow-hidden text-ellipsis">{model?.lastShiftLabel ?? 'загрузка смены…'}</span>
           {model && (
             <button
               type="button"
               onClick={() => (decisionOpen ? setDecisionOpen(false) : openDecision())}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-[14px] font-medium text-text bg-surface hover:bg-neutral-300 transition-colors shrink-0"
+              className="flex items-center gap-2 px-2.5 sm:px-3.5 py-2 rounded-lg text-[14px] font-medium text-text bg-surface hover:bg-neutral-300 transition-colors shrink-0"
               style={{ background: decisionOpen ? 'var(--color-neutral-300)' : undefined }}
               title="Решения по инцидентам: варианты от ИИ"
             >
@@ -127,14 +113,14 @@ export default function App({ initialView = 'flow' }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 px-7 pt-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2 sm:gap-3 px-4 md:px-7 pt-5">
             {(view === 'money' ? model.finance.kpis : model.kpis).map((k) => (
-              <div key={k.l} className="px-5 py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
+              <div key={k.l} className="min-w-0 px-4 py-3 sm:px-5 sm:py-4 bg-bg rounded-2xl flex flex-col gap-1 shadow-[var(--shadow-card)]">
                 <div className="flex items-center gap-2 text-[13px] text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ background: S[k.st].fill }} />{k.l}
                 </div>
                 <div className="flex items-baseline gap-x-2 flex-wrap">
-                  <span className="num whitespace-nowrap text-[28px] leading-[1.1]" style={{ color: k.st === 'g' ? 'var(--color-text)' : S[k.st].ink }}>{k.v}</span>
+                  <span className="num whitespace-nowrap text-[22px] sm:text-[28px] leading-[1.1]" style={{ color: k.st === 'g' ? 'var(--color-text)' : S[k.st].ink }}>{k.v}</span>
                   <span className="text-xs text-neutral-700 whitespace-nowrap">{k.n}</span>
                 </div>
               </div>

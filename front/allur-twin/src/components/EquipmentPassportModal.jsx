@@ -16,7 +16,7 @@ function Tile({ label, value, note, st }) {
   return (
     <div>
       <div className="text-[11px] uppercase tracking-wider text-neutral-600">{label}</div>
-      <div className="num text-2xl" style={{ color: st && st !== 'g' ? S[st].ink : 'var(--color-text)' }}>{value}</div>
+      <div className="num text-xl sm:text-2xl" style={{ color: st && st !== 'g' ? S[st].ink : 'var(--color-text)' }}>{value}</div>
       {note && <div className="text-[11px] text-neutral-600">{note}</div>}
     </div>
   );
@@ -42,14 +42,14 @@ export default function EquipmentPassportModal({ equipment, area, model, onClose
   const stopMin = stop ? Math.max(0, Math.round((model.anchor - stop.startedAt) / 60000)) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div onClick={onClose} className="fixed inset-0 bg-neutral-900/50" />
 
-      <aside className="relative w-full max-w-2xl bg-bg border border-divider shadow-lg z-10 max-h-[92vh] flex flex-col overflow-hidden blueprint" role="dialog" aria-modal="true" aria-labelledby="passport-title">
+      <aside className="relative w-full max-w-2xl bg-bg border border-divider shadow-lg z-10 max-h-[92dvh] flex flex-col overflow-hidden blueprint" role="dialog" aria-modal="true" aria-labelledby="passport-title">
         <Corners />
         <div className="h-1.5 shrink-0" style={{ background: S[status.st].fill }} />
 
-        <div className="px-6 py-4 border-b border-divider flex items-start justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 border-b border-divider flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="text-[11px] tracking-[.08em] uppercase text-neutral-600 flex items-center gap-1.5 flex-wrap">
               <span>{area?.name || 'Производство'}</span><span>›</span><span className="font-semibold text-text">{eq.code}</span>
@@ -63,7 +63,7 @@ export default function EquipmentPassportModal({ equipment, area, model, onClose
           <button type="button" onClick={onClose} className="btn btn-ghost btn-icon text-xl" aria-label="Закрыть">×</button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex flex-col gap-5 text-sm">
+        <div className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 text-sm">
           {stop && (
             <div className="px-3 py-2.5 text-[13px]" style={{ background: S.r.tint, color: S.r.ink }}>
               Стоит с {fmtTime(stop.startedAt)} — {stop.reason.toLowerCase()}. {stopMin} мин, ≈ {fmtKzt(stopMin * stop.rate)} потерь.
@@ -115,7 +115,7 @@ export default function EquipmentPassportModal({ equipment, area, model, onClose
           </div>
         </div>
 
-        <div className="px-6 py-3.5 border-t border-divider flex items-center justify-end gap-2">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-divider flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Закрыть</button>
           <button
             type="button"

@@ -19,8 +19,8 @@ export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, on
       <div onClick={onClose} className="fixed inset-0 z-20" style={{ background: 'color-mix(in srgb, var(--color-neutral-900) 40%, transparent)' }} />
       <aside className="fixed top-0 right-0 bottom-0 w-[min(520px,100vw)] bg-bg shadow-lg z-[21] overflow-y-auto flex flex-col" role="dialog" aria-label={a.name}>
         <div className="h-1.5 shrink-0" style={{ background: S[a.st].fill }} />
-        <div className="px-6 py-[18px] border-b border-divider flex justify-between gap-4">
-          <div className="flex flex-col gap-1">
+        <div className="px-4 sm:px-6 py-[18px] border-b border-divider flex justify-between gap-4">
+          <div className="flex flex-col gap-1 min-w-0">
             <span className="text-[11px] tracking-[.08em] text-neutral-700">{a.code} · {a.sub}</span>
             <h3>{a.name}</h3>
             <span className="text-[13px]" style={{ color: S[a.st].ink }}>{S[a.st].l} — {a.alert.text}</span>
@@ -28,7 +28,7 @@ export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, on
           <button type="button" onClick={onClose} className="btn btn-ghost btn-icon text-xl" aria-label="Закрыть">×</button>
         </div>
 
-        <div className="px-6 py-5 flex flex-col gap-[18px]">
+        <div className="px-4 sm:px-6 py-5 flex flex-col gap-[18px]">
           <h6 className="text-neutral-700">Параметры процесса · сутки</h6>
           {a.params.map((p) => (
             <div key={p.name} className="flex flex-col gap-1.5">
@@ -107,7 +107,7 @@ export default function AreaDrawer({ area: a, onClose, onWhatIf, onIncidents, on
             </div>
           )}
 
-          <div className="flex gap-2.5 flex-wrap">
+          <div className="grid grid-cols-1 sm:flex gap-2.5 flex-wrap">
             <button type="button" onClick={onWhatIf} className="btn btn-primary">Смоделировать в What-If</button>
             <button type="button" onClick={onIncidents} className="btn btn-secondary">Инциденты участка</button>
             <button type="button" onClick={onAsk} className="btn btn-secondary">Спросить ИИ ассистента</button>

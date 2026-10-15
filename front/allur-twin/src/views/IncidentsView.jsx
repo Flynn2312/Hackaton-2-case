@@ -30,6 +30,12 @@ function DecisionLine({ decision: d, onOpen }) {
 
 const SEVERITY = { critical: 'критический', high: 'высокий', medium: 'средний', low: 'низкий' };
 
+// Цвет плашки статуса: открыт — красный, в работе — жёлтый, закрыт — серый
+const stateColors = (i) => ({
+  bg: !i.open ? 'var(--color-neutral-200)' : i.status === 'open' ? S.r.tint : S.y.tint,
+  fg: !i.open ? 'var(--color-neutral-800)' : i.status === 'open' ? S.r.ink : S.y.ink,
+});
+
 export default function IncidentsView({ model, areaId, onClearArea, onOpenDecision }) {
   const [filter, setFilter] = useState('all');
   const [shown, setShown] = useState(PAGE);
@@ -40,7 +46,7 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
     .filter((i) => areaId == null || i.production_area_id === areaId);
 
   return (
-    <main className="px-7 pt-6 pb-10 flex flex-col gap-5">
+    <main className="px-4 md:px-7 pt-6 pb-10 flex flex-col gap-5 min-w-0">
       <PageTitle
         title="Журнал инцидентов"
         sub={
@@ -59,14 +65,36 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
         </div>
       </PageTitle>
 
-      <div className="overflow-x-auto">
+      {/* Телефон: инциденты карточками, таблица не помещается */}
+      <div className="md:hidden flex flex-col gap-2">
+        {list.slice(0, shown).map((i) => {
+          const { bg, fg } = stateColors(i);
+          return (
+            <div key={i.id} className="bg-bg rounded-xl px-3.5 py-3 flex flex-col gap-1 shadow-[var(--shadow-card)] min-w-0" style={{ borderLeft: `3px solid ${S[i.st].fill}` }}>
+              <div className="flex items-center justify-between gap-2 text-xs text-neutral-700">
+                <span className="min-w-0 truncate">{fmtDateTime(i.created_at)} · {i.area?.name ?? '—'}</span>
+                <span className="shrink-0 text-[11px] px-2 py-0.5" style={{ background: bg, color: fg }}>{i.state}</span>
+              </div>
+              <div className="text-sm font-medium break-words">{i.title}</div>
+              {i.description && <div className="text-xs text-neutral-700 break-words">{i.description}</div>}
+              <div className="text-[11px] text-neutral-600">
+                уровень: {SEVERITY[i.severity] ?? i.severity}
+                {i.downtime != null && <> · простой <b className="num" style={{ color: i.st === 'g' ? 'var(--color-text)' : S[i.st].ink }}>{i.downtime} мин</b></>}
+              </div>
+              <DecisionLine decision={i.decision} onOpen={() => onOpenDecision(i.id)} />
+            </div>
+          );
+        })}
+        {list.length === 0 && <div className="py-6 text-sm text-neutral-700">Инцидентов по фильтру нет.</div>}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto">
         <div className="grid grid-cols-[120px_170px_minmax(0,1fr)_90px_140px] min-w-[760px]">
           {['ВРЕМЯ', 'УЧАСТОК', 'СОБЫТИЕ', 'ПРОСТОЙ', 'СТАТУС'].map((h) => (
             <div key={h} className="px-2.5 py-2 border-b border-divider text-[11px] tracking-[.08em] text-neutral-700">{h}</div>
           ))}
           {list.slice(0, shown).map((i) => {
-            const sBg = !i.open ? 'var(--color-neutral-200)' : i.status === 'open' ? S.r.tint : S.y.tint;
-            const sFg = !i.open ? 'var(--color-neutral-800)' : i.status === 'open' ? S.r.ink : S.y.ink;
+            const { bg: sBg, fg: sFg } = stateColors(i);
             return [
               <div key={`t${i.id}`} className="px-2.5 py-3 border-b border-neutral-300 text-[13px] text-neutral-700" style={{ borderLeft: `3px solid ${S[i.st].fill}` }}>{fmtDateTime(i.created_at)}</div>,
               <div key={`a${i.id}`} className="px-2.5 py-3 border-b border-neutral-300 text-sm">{i.area?.name ?? '—'}</div>,
