@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PageTitle, Segmented } from '../components/ui';
+import PeriodPicker from '../components/PeriodPicker';
 import { NORMS } from '../lib/model';
+import { inPeriodOf, resolvePeriod } from '../lib/period';
+import { downloadIncidentsCsv } from '../lib/report';
 import { S, accuracySt, fmtDateTime } from '../lib/format';
 
 const FILTERS = [['all', 'Все'], ['crit', 'Критичные'], ['open', 'Незакрытые']];
@@ -36,14 +39,31 @@ const stateColors = (i) => ({
   fg: !i.open ? 'var(--color-neutral-800)' : i.status === 'open' ? S.r.ink : S.y.ink,
 });
 
-export default function IncidentsView({ model, areaId, onClearArea, onOpenDecision }) {
+export default function IncidentsView({ model, areaId, onClearArea, onOpenDecision, period, onPeriod }) {
   const [filter, setFilter] = useState('all');
   const [shown, setShown] = useState(PAGE);
   const area = areaId != null ? model.areas.find((a) => a.id === areaId) : null;
+  // Период общий со «Сводкой» и «Финансами»; ушли за пределы истории — показываем текущий
+  const p = useMemo(
+    () => resolvePeriod(model, period.kind, period.offset) ?? resolvePeriod(model, period.kind, 0),
+    [model, period.kind, period.offset],
+  );
+  const inPeriod = p ? inPeriodOf(p) : () => true;
 
   const list = model.incidents
+    .filter((i) => inPeriod(new Date(i.created_at).getTime()))
     .filter((i) => filter === 'all' || (filter === 'crit' ? i.st === 'r' : i.open))
     .filter((i) => areaId == null || i.production_area_id === areaId);
+
+  // CSV — ровно то, что на экране: период, фильтр и участок, все строки, а не только показанные
+  const download = () => downloadIncidentsCsv(list, {
+    factory: model.factory.name,
+    period: p ? `${p.label}${p.offset === 0 ? ' (период не завершён)' : ''}` : 'вся история',
+    filter: FILTERS.find(([k]) => k === filter)[1],
+    area: area?.name,
+    generated: fmtDateTime(model.anchor),
+    fileBase: `allur-twin_incidents_${p ? `${p.kind}_${p.fromDay}${p.kind === 'shift' ? `_${p.shifts[0]?.id}` : ''}` : 'all'}${filter === 'all' ? '' : `_${filter}`}`,
+  });
 
   return (
     <main className="px-4 md:px-7 pt-6 pb-10 flex flex-col gap-5 min-w-0">
@@ -51,7 +71,7 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
         title="Журнал инцидентов"
         sub={
           <>
-            Простой критичного оборудования за сутки: <b className="text-text">{model.critDowntime} мин</b> из норматива ≤ {NORMS.critDowntime} мин · всего записей {model.incidents.length}
+            Простой критичного оборудования за сутки: <b className="text-text">{model.critDowntime} мин</b> из норматива ≤ {NORMS.critDowntime} мин · за период записей {list.length}
           </>
         }
       >
@@ -64,6 +84,16 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
           <Segmented options={FILTERS} value={filter} onChange={(k) => { setFilter(k); setShown(PAGE); }} />
         </div>
       </PageTitle>
+
+      <div className="flex items-center justify-between gap-x-4 gap-y-2 flex-wrap">
+        <PeriodPicker value={period} onChange={(v) => { onPeriod(v); setShown(PAGE); }} period={p} />
+        <button type="button" className="btn btn-secondary flex items-center gap-2" onClick={download} disabled={!list.length} title="Журнал за выбранный период с текущим фильтром">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 13.5h11" />
+          </svg>
+          Скачать CSV
+        </button>
+      </div>
 
       {/* Телефон: инциденты карточками, таблица не помещается */}
       <div className="md:hidden flex flex-col gap-2">
@@ -85,7 +115,7 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
             </div>
           );
         })}
-        {list.length === 0 && <div className="py-6 text-sm text-neutral-700">Инцидентов по фильтру нет.</div>}
+        {list.length === 0 && <div className="py-6 text-sm text-neutral-700">За период инцидентов по фильтру нет.</div>}
       </div>
 
       <div className="hidden md:block overflow-x-auto">
@@ -113,7 +143,7 @@ export default function IncidentsView({ model, areaId, onClearArea, onOpenDecisi
             ];
           })}
         </div>
-        {list.length === 0 && <div className="py-6 text-sm text-neutral-700">Инцидентов по фильтру нет.</div>}
+        {list.length === 0 && <div className="py-6 text-sm text-neutral-700">За период инцидентов по фильтру нет.</div>}
       </div>
       {list.length > shown && (
         <button type="button" className="btn btn-secondary self-start" onClick={() => setShown((n) => n + PAGE)}>

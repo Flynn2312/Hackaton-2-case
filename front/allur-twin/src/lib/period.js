@@ -124,6 +124,13 @@ function lineStats(areas, recs, quals, anchor, bucketKey, buckets) {
   };
 }
 
+// Попадает ли момент (мс) в период: смена и сутки — по времени смен, неделя и месяц — по календарным дням
+export function inPeriodOf(period) {
+  return period.unit === 'hour'
+    ? (t) => t >= period.start && t < period.end
+    : (t) => { const d = localDate(t); return d >= period.fromDay && d < period.toDay; };
+}
+
 export function summarize(model, period) {
   const { recs, qual, dt, plans, decisions, carModels } = model.history;
   const anchor = model.anchor;
@@ -131,9 +138,7 @@ export function summarize(model, period) {
   const ids = new Set(period.shifts.map((s) => s.id));
   const pr = recs.filter((r) => ids.has(r.shift_id));
   const pq = qual.filter((q) => ids.has(q.shift_id));
-  const inPeriod = period.unit === 'hour'
-    ? (t) => t >= period.start && t < period.end
-    : (t) => { const d = localDate(t); return d >= period.fromDay && d < period.toDay; };
+  const inPeriod = inPeriodOf(period);
   const pdt = dt.filter((e) => inPeriod(ts(e.started_at)));
   const buckets = bucketsOf(period);
   const bucketKey = period.unit === 'hour' ? (r) => ts(r.timestamp) : (r) => r.day;
