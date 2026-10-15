@@ -25,7 +25,7 @@ export default function App({ initialView = 'flow' }) {
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [decisionId, setDecisionId] = useState(null);
-  // Период «Сводки» и «Финансов» — общий: переключили на одной вкладке, видно и на другой
+  // Период «Сводки», «Финансов» и «Инцидентов» — общий: переключили на одной вкладке, видно и на других
   const [period, setPeriod] = useState({ kind: 'day', offset: 0 });
   const seenDecisions = useRef(new Set());
 
@@ -130,7 +130,7 @@ export default function App({ initialView = 'flow' }) {
           {view === 'summary' && <SummaryView model={model} period={period} onPeriod={setPeriod} />}
           {view === 'money' && <FinanceView model={model} simNow={simNow} period={period} onPeriod={setPeriod} onOpenDecision={openDecision} />}
           {view === 'whatif' && <WhatIfView model={model} preset={whatIf} />}
-          {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} />}
+          {view === 'log' && <IncidentsView model={model} areaId={logArea} onClearArea={() => setLogArea(null)} onOpenDecision={openDecision} period={period} onPeriod={setPeriod} />}
           {view === 'chat' && <AssistantView model={model} request={chatRequest} />}
 
           {selArea && (

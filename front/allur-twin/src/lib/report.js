@@ -10,7 +10,7 @@ const groupBy = (arr, key) => arr.reduce((m, x) => ((m[key(x)] ??= []).push(x), 
 const ts = (v) => new Date(v).getTime();
 
 const KIND = Object.fromEntries(PERIODS);
-const INCIDENT_TYPE = {
+export const INCIDENT_TYPE = {
   equipment_failure: 'Отказ оборудования', quality_deviation: 'Отклонение качества', plan_deviation: 'Отставание от плана',
   material_shortage: 'Нехватка комплектующих', downtime_limit: 'Превышение лимита простоя', safety: 'Техника безопасности',
 };
@@ -148,11 +148,50 @@ export function reportCsv(r) {
 }
 
 export function downloadCsv(r) {
-  const blob = new Blob([reportCsv(r)], { type: 'text/csv;charset=utf-8' });
+  saveCsv(reportCsv(r), r.fileBase);
+}
+
+/* ───────── Журнал инцидентов ───────── */
+
+const SEVERITY = { critical: 'критический', high: 'высокий', medium: 'средний', low: 'низкий' };
+const CHOICE = { none: 'Ничего не менять', A: 'Вариант A', B: 'Вариант Б' };
+
+// list — инциденты ровно как на экране (период, фильтр, участок); meta — подписи для шапки файла
+export function downloadIncidentsCsv(list, meta) {
+  const rows = [];
+  const add = (...cols) => rows.push(cols.map(cell).join(';'));
+  add('Журнал инцидентов');
+  add('Завод', meta.factory);
+  add('Период', meta.period);
+  add('Фильтр', meta.filter);
+  if (meta.area) add('Участок', meta.area);
+  add('Сформирован (время завода)', meta.generated);
+  add('Записей', list.length);
+  rows.push('');
+  add('Дата и время', 'Участок', 'Оборудование', 'Тип', 'Уровень', 'Событие', 'Описание', 'Статус', 'Простой, мин',
+    'Решение', 'Кто принял', 'Как рекомендовал ИИ', 'Точность прогноза, %');
+  for (const i of list) {
+    const d = i.decision;
+    const decided = d && ['applied', 'expired'].includes(d.status) && d.chosen;
+    const title = decided && d.chosen !== 'none' ? d.payload?.options?.find((o) => o.key === d.chosen)?.title : null;
+    add(
+      fmtDateTime(i.created_at), i.area?.name ?? '', i.equipment?.name ?? '', INCIDENT_TYPE[i.type] ?? i.type,
+      SEVERITY[i.severity] ?? i.severity, i.title, i.description ?? '', i.state, i.downtime ?? '',
+      !d ? '' : decided ? `${CHOICE[d.chosen] ?? d.chosen}${title ? ` — ${title}` : ''}` : d.status === 'expired' ? 'не понадобилось' : 'ждёт выбора',
+      decided ? (d.decided_by === 'operator' ? 'оператор' : 'авто') : '',
+      decided ? (d.recommended === d.chosen ? 'да' : 'нет') : '',
+      d?.payload?.check?.accuracy ?? '',
+    );
+  }
+  saveCsv('\uFEFF' + rows.join('\r\n'), meta.fileBase);
+}
+
+function saveCsv(text, fileBase) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${r.fileBase}.csv`;
+  a.download = `${fileBase}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
