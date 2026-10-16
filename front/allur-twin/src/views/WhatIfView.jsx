@@ -61,9 +61,8 @@ function Bullets({ title, items }) {
       <h6 className="text-neutral-700">{title}</h6>
       <ul className="flex flex-col gap-1.5">
         {items.map((t, i) => (
-          <li key={i} className="flex gap-2 text-sm leading-[1.45]">
-            <span className="w-1 shrink-0 mt-1.5 h-3" style={{ background: 'var(--color-accent)' }} />
-            <span>{t}</span>
+          <li key={i} className="text-sm leading-[1.45]">
+            {t}
           </li>
         ))}
       </ul>
